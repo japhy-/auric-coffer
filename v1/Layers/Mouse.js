@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 
 import GridContext from '../Components/Grid/Context';
 
-import * as S from '../SVG';
+import * as S from '../../../src/SVG';
 
 
 export default function MouseLayer ({target}) {

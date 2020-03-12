@@ -1,0 +1,27 @@
+.MenuBar {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  right: 0px;
+  display: flex;
+  padding-top: 2px;
+  padding-bottom: 2px;
+
+  background-color: darkslategray;
+  color: lightgray;
+  font-size: 14pt;
+  align-items: center;
+}
+
+.MenuBar > * {
+  padding-left: 0.25em;
+  padding-right: 1em;
+}
+
+.MenuBar > .MenuLogo {
+  width: 24pt;
+  height: 24pt;
+}
+
+.MenuBar > .MenuItem {
+}
