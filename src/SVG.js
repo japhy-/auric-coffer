@@ -1,6 +1,18 @@
 import React from 'react';
 
 
+export function SVG ({children, width="100%", height="100%", ...props}) {
+  return <svg
+    xmlns="http://www.w3.org/2000/svg" version="1.1"
+    xmlnsXlink="http://www.w3.org/1999/xlink"
+    width={width} height={height}
+    {...props}
+  >
+    {children}
+  </svg>
+}
+
+
 export function Defs ({children, ...props}) {
   return <defs {...props}>
     {children}
