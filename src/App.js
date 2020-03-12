@@ -5,57 +5,19 @@ import './App.css';
 const GridContext = createContext({});
 
 function App () {
-  const [ grid, updateGrid ] = useGrid({ width: 16, height: 16, square: 40, tolerance: 8 });
+  const [ g, updateGrid ] = useGrid({ rows: 16, cols: 16, square: 40, tolerance: 8 });
   const [ mouseTarget, setMouseTarget ] = useState(null);
-
-  const determineMouseTarget = (ev) => {
-    const g = grid;
-
-    const mx = ev.nativeEvent.offsetX - g.square;
-    const my = ev.nativeEvent.offsetY - g.square;
-
-    if (mx < -g.tolerance || mx > g.width * g.square + g.tolerance) return null;
-    if (my < -g.tolerance || my > g.height * g.square + g.tolerance) return null;
-
-    let x, y;
-    const on_x = (mx % g.square >= (g.square - g.tolerance) || mx % g.square < g.tolerance);
-    const on_y = (my % g.square >= (g.square - g.tolerance) || my % g.square < g.tolerance);
-
-    if (on_x && on_y) {
-      x = Math.round(mx/g.square) * g.square;
-      y = Math.round(my/g.square) * g.square;
-
-      return { x, y, type: 'corner' };
-    }
-    else if (on_x || on_y) {
-      if (on_x) {
-        x = Math.round(mx/g.square) * g.square;
-        y = Math.floor(my/g.square) * g.square;
-      }
-      else if (on_y) {
-        x = Math.floor(mx/g.square) * g.square;
-        y = Math.round(my/g.square) * g.square;
-      }
-      return { x: x, y: y, type: on_x ? 'vertical' : 'horizontal' };
-    }
-    else {
-      x = Math.floor(mx/g.square) * g.square + g.tolerance/2;
-      y = Math.floor(my/g.square) * g.square + g.tolerance/2;
-  
-      return { x, y, cell: [x/g.square, y/g.square], type: 'square' };
-    }
-  }
 
   const onMouseOut = (ev) => {
     if (! ev.nativeEvent.fromElement.contains(ev.nativeEvent.toElement)) setMouseTarget(null);
   }
 
   const onMouseUp = (ev) => {
+    
   }
 
   const onMouseMove = (ev) => {
-    const t = determineMouseTarget(ev);
-    setMouseTarget(t);
+    setMouseTarget(determineMouseTarget(g, ev));
   }
 
   const onClick = (ev) => {
@@ -68,14 +30,14 @@ function App () {
 
   return (
     <div className="App">
-      <GridContext.Provider value={grid}>
-        <div id="grid-svg" style={{width: grid.style.width + 'px', height: grid.style.height + 'px', border: '1px solid black'}}>
+      <GridContext.Provider value={g}>
+        <div id="grid-svg" style={{width: g.width + 'px', height: g.height + 'px', border: '1px solid black'}}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             version="1.1"
             xmlnsXlink="http://www.w3.org/1999/xlink"
             width="100%" height="100%"
-            viewBox={`${-grid.square} ${-grid.square} ${grid.style.width} ${grid.style.height}`}
+            viewBox={`${-g.square} ${-g.square} ${g.width} ${g.height}`}
             {...{onMouseOut, onMouseUp, onMouseMove, onClick, onContextMenu}}
           >
             <S.Defs>
@@ -92,31 +54,84 @@ function App () {
           </svg>
         </div>
         <form>
-          <div>Width: <input name="width" type="text" size="3" maxLength="3" defaultValue={grid.width} onBlur={(e) => updateGrid({width: parseInt(e.currentTarget.value)})}/></div>
-          <div>Height: <input name="height" type="text" size="3" maxLength="3" defaultValue={grid.height} onBlur={(e) => updateGrid({height: parseInt(e.currentTarget.value)})}/></div>
+          <div>Rows: <input name="rows" type="text" size="3" maxLength="3" defaultValue={g.rows} onBlur={(e) => updateGrid({rows: parseInt(e.currentTarget.value)})}/></div>
+          <div>Columns: <input name="cols" type="text" size="3" maxLength="3" defaultValue={g.cols} onBlur={(e) => updateGrid({cols: parseInt(e.currentTarget.value)})}/></div>
         </form>
         <div>
-          {grid.width} x {grid.height}
+          Grid is {g.rows} rows by {g.cols} columns
+        </div>
+        <div>
+          <MouseCells target={mouseTarget}/>
         </div>
       </GridContext.Provider>
     </div>
   );
 }
 
+
+function determineMouseTarget (ev, g) {
+  const mx = ev.nativeEvent.offsetX - g.square;
+  const my = ev.nativeEvent.offsetY - g.square;
+
+  if (mx < -g.tolerance || mx > g.cols * g.square + g.tolerance) return null;
+  if (my < -g.tolerance || my > g.rows * g.square + g.tolerance) return null;
+
+  let x, y;
+  const on_x = (mx % g.square >= (g.square - g.tolerance) || mx % g.square < g.tolerance);
+  const on_y = (my % g.square >= (g.square - g.tolerance) || my % g.square < g.tolerance);
+
+  let cells, type;
+
+  if (on_x && on_y) {
+    x = Math.round(mx/g.square) * g.square;
+    y = Math.round(my/g.square) * g.square;
+
+    cells = [ [x/g.square-1,y/g.square-1], [x/g.square,y/g.square-1], [x/g.square-1,y/g.square], [x/g.square,y/g.square] ];
+    type = 'corner';
+  }
+  else if (on_x || on_y) {
+    if (on_x) {
+      x = Math.round(mx/g.square) * g.square;
+      y = Math.floor(my/g.square) * g.square;
+    }
+    else if (on_y) {
+      x = Math.floor(mx/g.square) * g.square;
+      y = Math.round(my/g.square) * g.square;
+    }
+    cells = [ [x/g.square-(on_x?1:0),y/g.square-(on_x?0:1)], [x/g.square,y/g.square] ];
+    type = on_x ? 'vertical' : 'horizontal';
+  }
+  else {
+    x = Math.floor(mx/g.square) * g.square + g.tolerance/2;
+    y = Math.floor(my/g.square) * g.square + g.tolerance/2;
+
+    cells = [ [(x - g.tolerance/2)/g.square, (y - g.tolerance/2)/g.square] ];
+    type = 'square';
+  }
+
+  return { x, y, cells: cells.map((c) => (c[0] >= 0 && c[0] < g.cols && c[1] >= 0 && c[1] < g.rows) ? {col: c[0], row: c[1]} : null), type };
+}
+
+
 function useGrid (g) {
   // base values
-  const [ width, setWidth ] = useState(g.width);
-  const [ height, setHeight ] = useState(g.height);
+  const [ cols, setCols ] = useState(g.cols);
+  const [ rows, setRows ] = useState(g.rows);
   const [ square, setSquare ] = useState(g.square);
   const [ tolerance, setTolerance ] = useState(g.tolerance);
 
   // derivative values
   const [ strokeWidth, setStrokeWidth ] = useState(g.square/10);
-  const [ style, setStyle ] = useState({width: square * (width+2), height: square * (height+2)});
+  const [ width, setWidth ] = useState(square * (cols+2));
+  const [ height, setHeight ] = useState(square * (rows+2));
 
   useEffect(() => {
-    setStyle({width: square * (width+2), height: square * (height+2)});
-  }, [width, height, square]);
+    setHeight(square * (rows+2))
+  }, [rows, square]);
+
+  useEffect(() => {
+    setWidth(square * (cols+2))
+  }, [cols, square]);
 
   useEffect(() => {
     setStrokeWidth(square/10);
@@ -126,8 +141,8 @@ function useGrid (g) {
     for (let x in g) {
       let func;
       switch (x) {
-        case 'width': func = setWidth; break;
-        case 'height': func = setHeight; break;
+        case 'rows': func = setRows; break;
+        case 'cols': func = setCols; break;
         case 'square': func = setSquare; break;
         case 'tolerance': func = setTolerance; break;
         default: func = null;
@@ -136,7 +151,7 @@ function useGrid (g) {
     }
   };
 
-  return [ { width, height, square, tolerance, style, strokeWidth }, updateGrid ];
+  return [ { rows, cols, square, tolerance, width, height, strokeWidth }, updateGrid ];
 }
 
 
@@ -227,13 +242,13 @@ function GridLines () {
   const g = useContext(GridContext);
   const lines = [];
 
-  for (let y = 0; y <= g.height; y++) {
+  for (let y = 0; y <= g.rows; y++) {
     lines.push(<S.Use href="#gridH" at={[0,g.square*y]} key={`gridH${y}`}/>);
-    if (y < g.height) lines.push(<S.Text key={`gridHN${y}`} fontFamily="garamond" textAnchor="middle" at={[0.5 * -g.square, (0.6 + y) * g.square]}>{y}</S.Text>);
+    if (y < g.rows) lines.push(<S.Text key={`gridHN${y}`} fontFamily="garamond" textAnchor="middle" at={[0.5 * -g.square, (0.6 + y) * g.square]}>{y}</S.Text>);
   }  
-  for (let x = 0; x <= g.width; x++) {
+  for (let x = 0; x <= g.cols; x++) {
     lines.push(<S.Use href="#gridV" at={[g.square*x,0]} key={`gridV${x}`}/>);
-    if (x < g.width) lines.push(<S.Text key={`gridVN${x}`} fontFamily="garamond" textAnchor="middle" at={[(0.5 + x) * g.square, 0.4 * -g.square]}>{x}</S.Text>);
+    if (x < g.cols) lines.push(<S.Text key={`gridVN${x}`} fontFamily="garamond" textAnchor="middle" at={[(0.5 + x) * g.square, 0.4 * -g.square]}>{x}</S.Text>);
   }  
 
   return (
@@ -246,7 +261,7 @@ function GridLine ({type}) {
   const g = useContext(GridContext);
 
   return (
-    <S.Line id={`grid${type.toUpperCase()}`} to={type === 'h' ? [g.square*g.width,0] : [0,g.square*g.height]} strokeDasharray="1 3" strokeWidth="1" stroke="gray"/>
+    <S.Line id={`grid${type.toUpperCase()}`} to={type === 'h' ? [g.square*g.cols,0] : [0,g.square*g.rows]} strokeDasharray="1 3" strokeWidth="1" stroke="gray"/>
   )
 }
 
@@ -264,7 +279,7 @@ function RubbleLayer () {
   const g = useContext(GridContext);
 
   return (
-    <S.Rect id="layerRubble" size={[g.width*g.square + 2*g.strokeWidth, g.height*g.square + 2*g.strokeWidth]} at={[-g.strokeWidth, -g.strokeWidth]} mask="#maskRubble"/>
+    <S.Rect id="layerRubble" size={[g.cols*g.square + 2*g.strokeWidth, g.rows*g.square + 2*g.strokeWidth]} at={[-g.strokeWidth, -g.strokeWidth]} mask="#maskRubble"/>
   )
 }
 
@@ -313,43 +328,21 @@ function MouseTarget ({target: t}) {
   }
 
   else return null;
+}
 
-  /*
-    else if (t.type === 'corner') {
-      setMouseTarget({...t, macro: 'circle', props: { stroke: 'red', opacity: 0.5, strokeDasharray: [3,1] }});
-    }
-    else if (t.type === 'square') {
-      setMouseTarget({...t, macro: 'squareRounded', props: { stroke: 'red', opacity: 0.5, strokeDasharray: [3,1] }});
-    }
-*/
 
-  if (t.macro === 'wall') {
-    if (t.type === 'vertical') t.props.transform = `rotate(90, ${t.x}, ${t.y})`;
-    return <S.Use
-      href="#lineWall"
-      at={[t.x, t.y]}
-      {...{strokeWidth: g.strokeWidth, stroke: 'black', ...t.props}}
-    />
-  }
+function MouseCells ({target}) {
+  const cells = [];
 
-  else if (t.macro === 'circle') {
-    return <S.Use
-      href="#circleCorner"
-      at={[t.x, t.y]}
-      {...{strokeWidth: g.strokeWidth, fill: 'transparent', stroke: 'black', ...t.props}}
-    />
-  }
+  if (! target) return null;
 
-  else if (t.macro === 'squareRounded') {
-    return <S.Use
-      href="#squareCell"
-      at={[t.x, t.y]}
-      {...{strokeWidth: g.strokeWidth, fill: 'transparent', stroke: 'black', ...t.props}}
-    />
+  for (let c in target.cells) {
+    if (target.cells[c]) cells.push(<div key={`MouseCell${c}`}>{target.cells[c].row}, {target.cells[c].col}</div>)
   }
 
   return (
     <>
+    {cells}
     </>
   )
 }
