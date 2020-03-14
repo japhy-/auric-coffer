@@ -1,4 +1,4 @@
-.MenuBar {
+.xMenuBar {
   position: absolute;
   top: 0px;
   left: 0px;
@@ -10,7 +10,14 @@
   background-color: darkslategray;
   color: lightgray;
   font-size: 14pt;
-  align-items: center;
+}
+
+.MenuBar {
+  display: flex;
+
+  background-color: darkslategray;
+  color: lightgray;
+  font-size: 14pt;
 }
 
 .MenuBar > * {
@@ -21,7 +28,4 @@
 .MenuBar > .MenuLogo {
   width: 24pt;
   height: 24pt;
-}
-
-.MenuBar > .MenuItem {
 }

@@ -1,7 +1,11 @@
+import React from 'react';
 
-
-function WorkSpace () {
-  return null;
+function WorkSpace ({children}) {
+  return (
+    <div className="WorkSpace">
+      {children}
+    </div>
+  )
 }
 
 export default WorkSpace;

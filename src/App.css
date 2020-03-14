@@ -1,38 +1,47 @@
+HTML, BODY, #root, .App {
+  height: 100%;
+  margin: 0px;
+}
+
 .App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
   display: flex;
-  flex-direction: column;
+  flex-flow: column;
+}
+
+.MenuBar {
+  display: flex;
+  flex: 0 1 auto;
+  padding-top: 2px;
+  padding-bottom: 2px;
+
+  background-color: darkslategray;
+  color: lightgray;
+  font-size: 14pt;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
 }
 
-.App-link {
-  color: #61dafb;
+.MenuBar > * {
+  padding-left: 0.5em;
+  padding-right: 0.75em;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.MenuBar > .MenuLogo {
+  width: 24pt;
+  height: 24pt;
+}
+
+.AppWindow {
+  display: flex;
+  flex: 1 1 auto;
+  flex-flow: row;
+  overflow: hidden;
+}
+
+.LeftPane {
+  flex-grow: 1;
+  overflow: auto;
+}
+
+.RightPane {
+  flex-basis: 360px;
 }

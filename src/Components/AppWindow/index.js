@@ -1,4 +1,4 @@
-import React, { createContext } from 'react';
+import React, { createContext, useState } from 'react';
 import * as Comp from '../../Components';
 import { useGridConfig } from '../../Components/GridConfig';
 
@@ -7,27 +7,32 @@ const MouseContext = createContext(null);
 
 function AppWindow () {
   const [ g, resizeGrid ] = useGridConfig({ rows: 16, cols: 16, square: 40, tolerance: 8 });
-  const mouse = {};
+  const mouse = { };
+
+  [ mouse.target, mouse.setTarget ] = useState(null);
+  [ mouse.killClick, mouse.setKillClick ] = useState(false);
+  [ mouse.position, mouse.setPosition ] = useState({x: 0, y: 0});
 
   return (
     <GridContext.Provider value={{g, resizeGrid}}>
-      <div class="AppWindow">
-        <div class="LeftPane">
-          <Comp.WorkSpace>
-            <MouseContext.Provider value={mouse}>
+      <MouseContext.Provider value={mouse}>
+        <div className="AppWindow">
+          <div className="LeftPane">
+            <div className="WorkSpace">
               <Comp.Grid/>
-            </MouseContext.Provider>
-          </Comp.WorkSpace>
+            </div>
+          </div>
+          <div className="RightPane">
+            <div className="Console">
+              <Comp.GridConfig/>
+              <Comp.MouseDetails/>
+            </div>
+          </div>
         </div>
-        <div class="RightPane">
-          <Comp.Console>
-            <Comp.GridConfig/>
-            <Comp.MouseDetails/>
-          </Comp.Console>
-        </div>
-      </div>
+      </MouseContext.Provider>
     </GridContext.Provider>
   )
 }
 
 export default AppWindow;
+export { GridContext, MouseContext };
