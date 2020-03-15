@@ -11,7 +11,7 @@ function AppWindow () {
 
   [ mouse.target, mouse.setTarget ] = useState(null);
   [ mouse.killClick, mouse.setKillClick ] = useState(false);
-  [ mouse.position, mouse.setPosition ] = useState({x: 0, y: 0});
+  [ mouse.position, mouse.setPosition ] = useState({row: 0, col: 0});
 
   return (
     <GridContext.Provider value={{g, resizeGrid}}>

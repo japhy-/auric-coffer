@@ -4,8 +4,8 @@ import { MouseContext } from '../AppWindow';
 function MouseDetails () {
   return (
     <div className="MouseDetails">
+      <hr/>
       <MousePosition/>
-      <MouseCells/>
     </div>
   )
 }
@@ -14,24 +14,11 @@ function MouseDetails () {
 function MousePosition () {
   const mouse = useContext(MouseContext);
   
-  return null && (
-    <div>{mouse.position.x}, {mouse.position.y}</div>
-  )
-}
-
-
-function MouseCells () {
-  const cells = [];
-  const { target } = useContext(MouseContext);
-
-  if (! target) return null;
-
-  for (let c in target.cells) {
-    if (target.cells[c]) cells.push(<div key={`MouseCell${c}`}>Cell {target.cells[c].row}, {target.cells[c].col}</div>)
-  }
-
   return (
-    <div>{cells}</div>
+    <>
+      <div>mouse @ row {mouse.position.row}, col {mouse.position.col} [{mouse.position.where}]</div>
+      <div>killClick = {mouse.killClick ? 'true' : 'false'}</div>
+    </>
   )
 }
 

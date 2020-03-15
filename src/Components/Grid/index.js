@@ -18,8 +18,7 @@ const item_cycle = {
 function Grid () {
   const { g } = useContext(GridContext);
   const mouse = useContext(MouseContext);
-  const [ walls, setWalls ] = useState({});
-  const [ events, setEvents ] = useState({});
+  const [ objects, setObjects ] = useState({});
 
   const onMouseOut = (ev) => {
     const elFrom = ev.nativeEvent.fromElement;
@@ -31,39 +30,48 @@ function Grid () {
   }
 
   const onMouseUp = (ev) => {
+    ev.preventDefault();
   }
 
   const onMouseMove = (ev) => {
-    // console.log(ev.target.id);
-    const target = determineMouseTarget(ev, g);
-    // console.log(target);
-    // mouse.setPosition({x: ev.nativeEvent.offsetX, y: ev.nativeEvent.offsetY});
-    mouse.setTarget(target); // determineMouseTarget(ev, g));
+    ev.preventDefault();
 
-    /*
+    const target = determineMouseTarget(ev, g, mouse);
+    mouse.setTarget(target);
+    if (! target) return;
+
     if (ev.buttons === 1) {
       mouse.setKillClick(true);
-      placeObject();
+      placeObject({target, cycle: false, objects, setObjects});
     }
     else if (ev.buttons === 2) {
       mouse.setKillClick(true);
-      clearObject();
+      clearObject({target, objects, setObjects});
     }
-    */
   }
 
   const onClick = (ev) => {
-    if (mouse.KillClick) {
+    ev.preventDefault();
+
+    if (mouse.killClick) {
       mouse.setKillClick(false);
       return;
     }
 
-    const t = determineMouseTarget(ev, g);
-    if (t) placeObject({grid: g, target: t, cycle: true, objects: { walls, setWalls, events, setEvents }});
+    const target = determineMouseTarget(ev, g, mouse);
+    if (target) placeObject({target, cycle: true, objects, setObjects});
   }
 
   const onContextMenu = (ev) => {
+    ev.preventDefault();
 
+    if (mouse.killClick) {
+      mouse.setKillClick(false);
+      return;
+    }
+
+    const target = determineMouseTarget(ev, g, mouse);
+    if (target) clearObject({target, objects, setObjects});
   }
 
   return (
@@ -73,7 +81,7 @@ function Grid () {
         {...{onMouseOut, onMouseUp, onMouseMove, onClick, onContextMenu}}
       >
         <Layers.GridLayer/>
-        <Layers.WallLayer walls={walls}/>
+        <Layers.WallLayer objects={objects}/>
         <Layers.MouseLayer/>
       </S.SVG>
     </div>
@@ -81,86 +89,76 @@ function Grid () {
 }
 
 
-function placeObject ({grid: g, target: t, objects: obj, cycle=false, ...props}) {
-  if (! t) return;
+function GridObject ({type, row, col, where}) {
+  const { g } = useContext(GridContext);
+  const coords = [col*g.square, row*g.square];
+ 
+  const props = { href: `#object-${type}`, at: coords, stroke: 'black' };
+  if (where === 'L') props.transform = `rotate(90, ${coords[0]}, ${coords[1]})`;
+  
+  return <S.Use {...props}/>;
+}
 
-  if (t.type === 'horizontal' || t.type === 'vertical') {
+
+function placeObject ({target: t, objects, setObjects, cycle=false, ...props}) {
+  if (! t) return;
+  const loc = `${t.col},${t.row},${t.where}`;
+
+  if (t.where === 'C') {
+    // console.log(`placing event in cell ${t.col}, ${t.row}`);
+  }
+  else if (t.where === 'L' || t.where === 'T') {
     const item = { type: props.item || 'wall', object: null };
-    const existing = obj.walls[`${t.type},${t.x},${t.y}`];
+    const existing = objects[loc];
 
     if (existing) {
       if (cycle) item.type = item_cycle[existing.type];
-      clearObject({target: t, objects: obj});
+      clearObject({loc, objects, setObjects});
       if (! item.type) return;
     }
 
-    const key = `${item.type}-${t.type}-${t.x},${t.y}`;
+    item.object = <GridObject key={loc} type={item.type} row={t.row} col={t.col} where={t.where}/>
 
-    if (item.type === 'wall') {
-      item.object = <S.Use key={key} href="#lineWall" at={[t.x,t.y]} stroke="black" strokeWidth={g.strokeWidth} transform={t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : ""}/>;
-    }
-    else if (item.type === 'rubble') {
-      item.object = <S.Use key={key} href="#groupRubble" at={[t.x,t.y]} transform={t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : ""}/>;
-    }
-    else if (item.type === 'door') {
-      item.object = <S.Use key={key} href="#groupDoor" at={[t.x,t.y]} stroke="black" transform={t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : ""}/>;
-    }
-    else if (item.type === 'doorBlocked') {
-      item.object = <S.Use key={key} href="#groupDoorBlocked" at={[t.x,t.y]} stroke="black" transform={t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : ""}/>;
-    }
-    else if (item.type === 'doorSecret') {
-      item.object = <S.Use key={key} href="#groupDoorSecret" at={[t.x,t.y]} stroke="black" transform={t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : ""}/>;
-    }
-    else if (item.type === 'doorNE') {
-      item.object = <S.Use key={key} href="#groupDoorHalf" at={[t.x,t.y]} stroke="black" transform={t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : ""}/>;
-    }
-    else if (item.type === 'doorSW') {
-      item.object = <S.Use key={key} href="#groupDoorHalf" at={[t.x,t.y]} stroke="black" transform={(t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : "") + ` rotate(180,${t.x+g.square/2},${t.y})`}/>;
-    }
-    else if (item.type === 'arch') {
-      item.object = <S.Use key={key} href="#groupArch" at={[t.x,t.y]} stroke="black" transform={t.type === 'vertical' ? `rotate(90,${t.x},${t.y})` : ""}/>;
-    }
-
-    obj.setWalls({...obj.walls, [`${t.type},${t.x},${t.y}`]: item});
-  }
-  else if (t.type === 'corner' || t.type === 'square') {
-    console.log("placing event");
+    setObjects({...objects, [loc]: item});
   }
 }
 
 
-function clearObject ({target: t, objects: obj}) {
-  if (! t) return;
-
-  if (t.type === 'horizontal' || t.type === 'vertical') {
-    // obj.setWalls({...obj.walls, [`${t.type},${t.x},${t.y}`]: null});
-
-    delete obj.walls[`${t.type},${t.x},${t.y}`]
-    obj.setWalls({...obj.walls});
+function clearObject ({loc=null, target=null, objects, setObjects}) {
+  if (loc === null && target !== null) loc = `${target.col},${target.row},${target.where}`;
+  if (loc && objects[loc]) {
+    delete objects[loc];
+    setObjects({...objects});
   }
 }
 
 
-function determineMouseTarget (ev, g) {
-  const mx = ev.nativeEvent.offsetX - g.square;
-  const my = ev.nativeEvent.offsetY - g.square;
+function determineMouseTarget (ev, g, mouse) {
+  let mx = ev.nativeEvent.offsetX - g.square;
+  let my = ev.nativeEvent.offsetY - g.square;
 
-  if (mx < -g.tolerance || mx > g.cols * g.square + g.tolerance) return null;
-  if (my < -g.tolerance || my > g.rows * g.square + g.tolerance) return null;
+  if (mx < -g.tolerance || mx > g.cols * g.square + g.tolerance-1) return null;
+  if (my < -g.tolerance || my > g.rows * g.square + g.tolerance-1) return null;
 
-  let x, y;
+  if (mx < 0) mx = 0;
+  else if (mx > g.cols * g.square) mx = g.cols * g.square - 1;
+
+  if (my < 0) my = 0;
+  else if (my > g.rows * g.square) my = g.rows * g.square - 1;
+
   const on_x = (mx % g.square >= (g.square - g.tolerance) || mx % g.square < g.tolerance);
   const on_y = (my % g.square >= (g.square - g.tolerance) || my % g.square < g.tolerance);
+  
+  let x, y, col, row, where;
 
-  let cells, type;
-
-  if (on_x && on_y) {
+  // intersection not needed
+  if (0 && on_x && on_y) {
     x = Math.round(mx/g.square) * g.square;
     y = Math.round(my/g.square) * g.square;
 
-    cells = [ [x/g.square-1,y/g.square-1], [x/g.square,y/g.square-1], [x/g.square-1,y/g.square], [x/g.square,y/g.square] ];
-    type = 'corner';
+    where = 'I'; // I = intersection
   }
+
   else if (on_x || on_y) {
     if (on_x) {
       x = Math.round(mx/g.square) * g.square;
@@ -170,20 +168,23 @@ function determineMouseTarget (ev, g) {
       x = Math.floor(mx/g.square) * g.square;
       y = Math.round(my/g.square) * g.square;
     }
-    cells = [ [x/g.square-(on_x?1:0),y/g.square-(on_x?0:1)], [x/g.square,y/g.square] ];
-    type = on_x ? 'vertical' : 'horizontal';
+
+    where = on_x ? 'L' : 'T';
   }
+
   else {
     x = Math.floor(mx/g.square) * g.square + g.tolerance/2;
     y = Math.floor(my/g.square) * g.square + g.tolerance/2;
 
-    cells = [ [(x - g.tolerance/2)/g.square, (y - g.tolerance/2)/g.square] ];
-    type = 'square';
+    where = 'C';
   }
 
-  return { x, y, cells: cells.map((c) => (c[0] >= 0 && c[0] < g.cols && c[1] >= 0 && c[1] < g.rows) ? {col: c[0], row: c[1]} : null), type };
-}
+  col = Math.floor(x/g.square);
+  row = Math.floor(y/g.square);
+  mouse.setPosition({col, row, where});
 
+  return { col, row, where, x, y };
+}
 
 
 export default Grid;
