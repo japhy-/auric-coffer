@@ -70,6 +70,13 @@ export function Path ({...props}) {
 }
 
 
+export function ClipPath ({children, ...props}) {
+  return <clipPath {...props}>
+    {children}
+  </clipPath>
+}
+
+
 export function Text ({at = [0,0], children, ...props}) {
   return <text x={at[0]} y={at[1]} {...props}>
     {children}

@@ -2,7 +2,7 @@ import React, { useContext, useState } from 'react';
 
 import * as S from '../../SVG';
 import * as Layers from '../Layers';
-import { GridContext, MouseContext } from '../AppWindow';
+import { GridContext, MouseContext, ObjectsContext, EventsContext } from '../AppWindow';
 
 const item_cycle = {
   wall: 'rubble',
@@ -18,7 +18,8 @@ const item_cycle = {
 function Grid () {
   const { g } = useContext(GridContext);
   const mouse = useContext(MouseContext);
-  const [ objects, setObjects ] = useState({});
+  const { objects, setObjects } = useContext(ObjectsContext);
+  const events = useContext(EventsContext);
 
   const onMouseOut = (ev) => {
     const elFrom = ev.nativeEvent.fromElement;
@@ -31,6 +32,7 @@ function Grid () {
 
   const onMouseUp = (ev) => {
     ev.preventDefault();
+    mouse.setRestrict(null);
   }
 
   const onMouseMove = (ev) => {
@@ -42,11 +44,16 @@ function Grid () {
 
     if (ev.buttons === 1) {
       mouse.setKillClick(true);
-      placeObject({target, cycle: false, objects, setObjects});
+      if (! mouse.restrict) mouse.setRestrict({...target});
+      else if (! (target.where === mouse.restrict.where && target[mouse.restrict.where === 'L' ? 'col' : 'row'] === mouse.restrict[mouse.restrict.where === 'L' ? 'col' : 'row'])) {
+        mouse.setTarget(null);
+        return false;
+      }
+      placeItem({target, cycle: false, objects, setObjects, events});
     }
     else if (ev.buttons === 2) {
       mouse.setKillClick(true);
-      clearObject({target, objects, setObjects});
+      clearItem({target, objects, setObjects, events});
     }
   }
 
@@ -59,7 +66,7 @@ function Grid () {
     }
 
     const target = determineMouseTarget(ev, g, mouse);
-    if (target) placeObject({target, cycle: true, objects, setObjects});
+    if (target) placeItem({target, cycle: true, objects, setObjects, events});
   }
 
   const onContextMenu = (ev) => {
@@ -71,7 +78,7 @@ function Grid () {
     }
 
     const target = determineMouseTarget(ev, g, mouse);
-    if (target) clearObject({target, objects, setObjects});
+    if (target) clearItem({target, objects, setObjects, events});
   }
 
   return (
@@ -81,54 +88,92 @@ function Grid () {
         {...{onMouseOut, onMouseUp, onMouseMove, onClick, onContextMenu}}
       >
         <Layers.GridLayer/>
-        <Layers.WallLayer objects={objects}/>
         <Layers.MouseLayer/>
+        <Layers.WallLayer/>
+        <Layers.EventLayer/>
       </S.SVG>
     </div>
   );
 }
 
 
-function GridObject ({type, row, col, where}) {
+function GridObject ({type, row, col, where, ...props}) {
   const { g } = useContext(GridContext);
   const coords = [col*g.square, row*g.square];
- 
-  const props = { href: `#object-${type}`, at: coords, stroke: 'black' };
-  if (where === 'L') props.transform = `rotate(90, ${coords[0]}, ${coords[1]})`;
+
+  const [ hovered, setHovered ] = useState(false);
+
+  const attrs = { href: `#object-${type}`, at: coords, stroke: hovered ? 'red' : 'black', ...props };
+  if (where === 'L') attrs.transform = `rotate(90, ${coords[0]}, ${coords[1]})`;
+  if (type === 'doorSecret') attrs.fill = hovered ? 'red' : 'black';
   
-  return <S.Use {...props}/>;
+  return <S.Use {...attrs} onMouseEnter={(ev) => setHovered(true)} onMouseLeave={(ev) => setHovered(false)} cursor="pointer" />;
 }
 
 
-function placeObject ({target: t, objects, setObjects, cycle=false, ...props}) {
+function GridEvent ({eid, row, col, ...props}) {
+  const { g } = useContext(GridContext);
+  const coords = [col*g.square + g.square/2, row*g.square + g.square/1.5];
+
+  const [ hovered, setHovered ] = useState(false);
+
+  const attrs = { at: coords, stroke: hovered ? 'red' : 'black', ...props };
+  
+  return <S.Text {...attrs} fontFamily="verdana" fontSize={g.square/2.5} textAnchor="middle"
+    onMouseEnter={(ev) => setHovered(true)} onMouseLeave={(ev) => setHovered(false)} cursor="pointer"
+  >{eid}</S.Text>;
+}
+
+
+function placeItem ({target: t, objects, setObjects, events, cycle=false, ...props}) {
   if (! t) return;
+  
   const loc = `${t.col},${t.row},${t.where}`;
 
   if (t.where === 'C') {
-    // console.log(`placing event in cell ${t.col}, ${t.row}`);
+    if (events.items[loc]) {
+      console.log(`already an event in cell ${t.col}, ${t.row}`);
+      return;
+    }
+    console.log(`placing event in cell ${t.col}, ${t.row}`);
+    const item = { event_id: events.nextId, attr: { key: loc, row: t.row, col: t.col } };
+    item.object = <GridEvent eid={item.event_id} {...item.attr}/>
+
+    events.setItems({...events.items, [loc]: item});
+    // find the lowest event ID not in use
+    events.setNextId(events.nextId+1);
   }
   else if (t.where === 'L' || t.where === 'T') {
-    const item = { type: props.item || 'wall', object: null };
+    const type = props.item || 'wall';
     const existing = objects[loc];
 
     if (existing) {
-      if (cycle) item.type = item_cycle[existing.type];
-      clearObject({loc, objects, setObjects});
-      if (! item.type) return;
+      if (cycle) type = item_cycle[existing.type];
+      clearItem({loc, objects, setObjects});
+      if (! type) return;
     }
 
-    item.object = <GridObject key={loc} type={item.type} row={t.row} col={t.col} where={t.where}/>
+    const item = { attr: { type, key: loc, row: t.row, col: t.col, where: t.where } };
+    item.object = <GridObject {...item.attr}/>
 
     setObjects({...objects, [loc]: item});
   }
 }
 
 
-function clearObject ({loc=null, target=null, objects, setObjects}) {
+function clearItem ({loc=null, target=null, objects, setObjects, events}) {
   if (loc === null && target !== null) loc = `${target.col},${target.row},${target.where}`;
   if (loc && objects[loc]) {
     delete objects[loc];
     setObjects({...objects});
+  }
+  else if (loc && events.items[loc]) {
+    if (events.items[loc].event_id < events.nextId) events.setNextId(events.items[loc].event_id);
+    else { 
+      // find the lowest event ID not in use
+    }
+    delete events.items[loc];
+    events.setItems({...events.items});
   }
 }
 
@@ -188,3 +233,4 @@ function determineMouseTarget (ev, g, mouse) {
 
 
 export default Grid;
+export { GridObject };
