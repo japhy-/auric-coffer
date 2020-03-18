@@ -136,15 +136,12 @@ function placeItem ({target: t, objects, setObjects, events, cycle=false, ...pro
       return;
     }
     console.log(`placing event in cell ${t.col}, ${t.row}`);
-    const item = { event_id: events.nextId, attr: { key: loc, row: t.row, col: t.col } };
-    item.object = <GridEvent eid={item.event_id} {...item.attr}/>
-
-    events.setItems({...events.items, [loc]: item});
-    // find the lowest event ID not in use
-    events.setNextId(events.nextId+1);
+    const item = { eventId: events.getNextAvailableId(), attr: { key: loc, row: t.row, col: t.col } };
+    item.object = <GridEvent eid={item.eventId} {...item.attr}/>
+    events.addEvent({key: loc, item});
   }
   else if (t.where === 'L' || t.where === 'T') {
-    const type = props.item || 'wall';
+    let type = props.item || 'wall';
     const existing = objects[loc];
 
     if (existing) {
@@ -168,12 +165,7 @@ function clearItem ({loc=null, target=null, objects, setObjects, events}) {
     setObjects({...objects});
   }
   else if (loc && events.items[loc]) {
-    if (events.items[loc].event_id < events.nextId) events.setNextId(events.items[loc].event_id);
-    else { 
-      // find the lowest event ID not in use
-    }
-    delete events.items[loc];
-    events.setItems({...events.items});
+    events.removeEvent(loc);
   }
 }
 

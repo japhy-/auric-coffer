@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { MouseContext } from '../AppWindow';
+import { MouseContext, EventsContext } from '../AppWindow';
 
 function MouseDetails () {
   return (
@@ -13,11 +13,12 @@ function MouseDetails () {
 
 function MousePosition () {
   const mouse = useContext(MouseContext);
+  const events = useContext(EventsContext);
   
   return (
     <>
       <div>mouse @ row {mouse.position.row}, col {mouse.position.col} [{mouse.position.where}]</div>
-      <div>killClick = {mouse.killClick ? 'true' : 'false'}</div>
+      <div>nextEventId={events.usedIds[0]} :: EventIdState={events.usedIds.join(" ")}</div>
     </>
   )
 }

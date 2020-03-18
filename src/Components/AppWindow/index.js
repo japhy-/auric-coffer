@@ -1,4 +1,4 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useEffect } from 'react';
 import * as Comp from '../../Components';
 import { useGridConfig } from '../../Components/GridConfig';
 
@@ -55,7 +55,44 @@ function useEventsManager () {
   const events = {};
 
   [ events.items, events.setItems ] = useState({});
-  [ events.nextId, events.setNextId ] = useState(1);
+  [ events.usedIds, events.setUsedIds ] = useState([1]);
+  events.nextId = events.usedIds[0];
+
+  events.addEvent = ({key, item}) => {
+    events.updateUsedIds({eventId: item.eventId, used: true});
+    events.setItems({...events.items, [key]: item});
+  };
+  events.removeEvent = (key) => {
+    events.updateUsedIds({eventId: events.items[key].eventId, used: false});
+    delete events.items[key];
+    events.setItems({...events.items});
+  };
+  
+  events.getNextAvailableId = () => {
+    const nextId = events.usedIds[0];
+    events.updateUsedIds({eventId: nextId, used: true});
+    return nextId;
+  };
+
+  events.updateUsedIds = ({eventId, used}) => {
+    events.usedIds[eventId] = used;
+    if (used) {
+      if (eventId <= events.usedIds[0]) {
+        for (let i = eventId+1; ; i++) {
+          if (! events.usedIds[i]) {
+            events.usedIds[0] = i;
+            break;
+          }
+        }
+      }
+    }
+    else {
+      if (eventId < events.usedIds[0]) {
+        events.usedIds[0] = eventId;
+      }
+    }
+    events.setUsedIds([...events.usedIds]);
+  };
 
   return events;
 }
