@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { MouseContext, EventsContext } from '../AppWindow';
+import { MouseContext, EventsContext } from '../GridEditor';
 
 function MouseDetails () {
   return (

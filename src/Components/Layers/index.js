@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import * as S from '../../SVG';
-import { GridContext, MouseContext, ObjectsContext, EventsContext } from '../AppWindow';
+import { GridContext, MouseContext, ObjectsContext, EventsContext } from '../GridEditor';
 import { GridObject } from '../Grid';
 
 
