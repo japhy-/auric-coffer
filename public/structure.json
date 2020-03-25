@@ -1,0 +1,35 @@
+{
+  "module": {
+    "title": "Title of Module",
+    "engine": {
+
+    },
+    "flags": [
+      { "id": "FLAG_NAME", "type": "BOOL|INT|POS|STR", "value": "VALUE" }
+    ],
+    "maps": {
+      "textures": [
+        { "id": "TEXTURE_ID", "size": { "width": "W", "height": "H" }, "type": "SVG|PNG|JPG|GIF", "data": "@file|raw" }
+      ],
+      "overland": [
+
+      ],
+      "locales": [
+        {
+          "id": "LOCALE_ID",
+          "name": "Name of Locale",
+          "map": {
+            "size": { "rows": "N_ROWS", "cols": "N_COLS" },
+            "events": [
+              null, {
+                "name": "Event 1 Name",
+                "code": "JAVASCRIPT"
+              }
+            ]
+
+          }
+        }
+      ]
+    }
+  }
+}
