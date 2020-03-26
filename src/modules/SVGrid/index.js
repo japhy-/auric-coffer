@@ -66,16 +66,18 @@ function SVGrid (params) {
   }
 
   const xyToCell = ({x, y}) => {
-    const cell = { row: null, col: null };
+    const cell = { row: null, col: null, oob: true };
   
     if (x !== null && y !== null) {
       const { gx, gy } = xyToGrid({x, y});
       const col = Math.floor(gx / params.colWidth);
       const row = Math.floor(gy / params.rowHeight);
       
+      cell.col = col + params.colStart;
+      cell.row = row + params.rowStart;
+
       if (col >= 0 && col < params.cols && row >= 0 && row < params.rows) {
-        cell.col = col + params.colStart;
-        cell.row = row + params.rowStart;
+        cell.oob = false;
       }
     }
   
@@ -83,87 +85,130 @@ function SVGrid (params) {
   }
 
   const proximateTo = ({x, y, row, col, tolerance}) => {
+    const prox = {};
     const near = [];
     const { gx, gy } = xyToGrid({x, y});
     
-    if (row !== null && col !== null) {
-      near.push(
-        <S.Rect key="proximate-cell" at={[(col-params.colStart)*params.colWidth,(row-params.rowStart)*params.rowHeight]} size={[params.colWidth, params.rowHeight]} stroke="black" strokeWidth={2} fill="silver" opacity="0.25"/>
-      );
-
+    if (gx !== null && gy !== null) {
       const fx = gx % params.colWidth;
       const fy = gy % params.rowHeight;
 
       const on_x = (fy >= (params.rowHeight - tolerance) || fy < tolerance);
       const on_y = (fx >= (params.colWidth - tolerance) || fx < tolerance);
-    
-      // square quadrant
-      if (fx < params.colWidth/2 && fy < params.rowHeight/2) {
-        const c = Math.round(gx / params.colWidth);
-        const r = Math.round(gy / params.rowHeight);
-        near.push(
-          <S.Rect key="proximate-tl" at={[params.colWidth*c, params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight/2]} fill="yellow" opacity="0.25"/>
-        )
-      }
-      else if (fx > params.colWidth/2 && fy < params.rowHeight/2) {
-        const c = Math.round(gx / params.colWidth);
-        const r = Math.round(gy / params.rowHeight);
-        near.push(
-          <S.Rect key="proximate-tr" at={[params.colWidth*(c-0.5), params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight/2]} fill="red" opacity="0.25"/>
-        )
-      }
-      else if (fx < params.colWidth/2 && fy > params.rowHeight/2) {
-        const c = Math.round(gx / params.colWidth);
-        const r = Math.round(gy / params.rowHeight);
-        near.push(
-          <S.Rect key="proximate-bl" at={[params.colWidth*c, params.rowHeight*(r-0.5)]} size={[params.colWidth/2, params.rowHeight/2]} fill="orange" opacity="0.25"/>
-        )
-      }
-      else if (fx > params.colWidth/2 && fy > params.rowHeight/2) {
-        const c = Math.round(gx / params.colWidth);
-        const r = Math.round(gy / params.rowHeight);
-        near.push(
-          <S.Rect key="proximate-br" at={[params.colWidth*(c-0.5), params.rowHeight*(r-0.5)]} size={[params.colWidth/2, params.rowHeight/2]} fill="magenta" opacity="0.25"/>
-        )
-      }
 
-      // square half (top/bottom)
-      if (fy < params.rowHeight/2) {
+      if (!oob) {
         const c = Math.floor(gx / params.colWidth);
-        const r = Math.round(gy / params.rowHeight);
-        near.push(
-          <S.Rect key="proximate-tb" at={[params.colWidth*c, params.rowHeight*r]} size={[params.colWidth, params.rowHeight/2]} fill="teal" opacity="0.25"/>
-        )
-      }
-      else if (fy > params.rowHeight/2) {
-        const c = Math.floor(gx / params.colWidth);
-        const r = Math.round(gy / params.rowHeight);
-        near.push(
-          <S.Rect key="proximate-tb" at={[params.colWidth*c, params.rowHeight*(r-0.5)]} size={[params.colWidth, params.rowHeight/2]} fill="teal" opacity="0.25"/>
-        )
-      }
+        const r = Math.floor(gy / params.rowHeight);
 
-      // square half (left/right)
-      if (fx < params.colWidth/2) {
-        const c = Math.round(gx / params.colWidth);
-        const r = Math.floor(gy / params.rowHeight);
+        prox.cell = { col: c, row: r };
         near.push(
-          <S.Rect key="proximate-lr" at={[params.colWidth*c, params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight]} fill="brown" opacity="0.25"/>
-        )
-      }
-      else if (fx > params.colWidth/2) {
-        const c = Math.round(gx / params.colWidth);
-        const r = Math.floor(gy / params.rowHeight);
-        near.push(
-          <S.Rect key="proximate-lr" at={[params.colWidth*(c-0.5), params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight]} fill="brown" opacity="0.25"/>
-        )
+          <S.Rect key="proximate-cell" at={[c*params.colWidth,r*params.rowHeight]} size={[params.colWidth, params.rowHeight]} stroke="black" strokeWidth={2} fill="silver" opacity="0.25"/>
+        );
+
+        const tri = { L: fx, T: fy, R: params.colWidth-fx, B: params.rowHeight-fy };
+
+        if (tri.L < tri.T && tri.L < tri.R && tri.L < tri.B) {
+          prox.tri = 'L';
+          near.push(
+            <S.Path key="proximate-tri" d={`M ${params.colWidth*c} ${params.rowHeight*r} l ${params.colWidth/2} ${params.rowHeight/2} l ${-params.colWidth/2} ${params.rowHeight/2} Z`} fill="cyan"/>
+          )  
+        }  
+        else if (tri.T < tri.R && tri.T < tri.B) {
+          prox.tri = 'T';
+          near.push(
+            <S.Path key="proximate-tri" d={`M ${params.colWidth*c} ${params.rowHeight*r} l ${params.colWidth/2} ${params.rowHeight/2} l ${params.colWidth/2} ${-params.rowHeight/2} Z`} fill="green"/>
+          )  
+        }  
+        else if (tri.R < tri.B) {
+          prox.tri = 'R';
+          near.push(
+            <S.Path key="proximate-tri" d={`M ${params.colWidth*(c+1)} ${params.rowHeight*r} l ${-params.colWidth/2} ${params.rowHeight/2} l ${params.colWidth/2} ${params.rowHeight/2} Z`} fill="pink"/>
+          )  
+        }  
+        else {
+          prox.tri = 'B';
+          near.push(
+            <S.Path key="proximate-tri" d={`M ${params.colWidth*c} ${params.rowHeight*(r+1)} l ${params.colWidth/2} ${-params.rowHeight/2} l ${params.colWidth/2} ${params.rowHeight/2} Z`} fill="purple"/>
+          )  
+        }  
+
+        // square quadrant
+        if (fx < params.colWidth/2 && fy < params.rowHeight/2) {
+          const c = Math.round(gx / params.colWidth);
+          const r = Math.round(gy / params.rowHeight);
+          prox.quad = 'TL';
+          near.push(
+            <S.Rect key="proximate-quad" at={[params.colWidth*c, params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight/2]} fill="yellow" opacity="0.25"/>
+          )
+        }
+        else if (fx > params.colWidth/2 && fy < params.rowHeight/2) {
+          const c = Math.round(gx / params.colWidth);
+          const r = Math.round(gy / params.rowHeight);
+          prox.quad = 'TR';
+          near.push(
+            <S.Rect key="proximate-quad" at={[params.colWidth*(c-0.5), params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight/2]} fill="red" opacity="0.25"/>
+          )
+        }
+        else if (fx < params.colWidth/2 && fy > params.rowHeight/2) {
+          const c = Math.round(gx / params.colWidth);
+          const r = Math.round(gy / params.rowHeight);
+          prox.quad = 'BL';
+          near.push(
+            <S.Rect key="proximate-quad" at={[params.colWidth*c, params.rowHeight*(r-0.5)]} size={[params.colWidth/2, params.rowHeight/2]} fill="orange" opacity="0.25"/>
+          )
+        }
+        else if (fx > params.colWidth/2 && fy > params.rowHeight/2) {
+          const c = Math.round(gx / params.colWidth);
+          const r = Math.round(gy / params.rowHeight);
+          prox.quad = 'BR';
+          near.push(
+            <S.Rect key="proximate-quad" at={[params.colWidth*(c-0.5), params.rowHeight*(r-0.5)]} size={[params.colWidth/2, params.rowHeight/2]} fill="magenta" opacity="0.25"/>
+          )
+        }
+
+        // square half (top/bottom)
+        if (fy < params.rowHeight/2) {
+          const c = Math.floor(gx / params.colWidth);
+          const r = Math.round(gy / params.rowHeight);
+          prox.vhalf = 'T';
+          near.push(
+            <S.Rect key="proximate-tb" at={[params.colWidth*c, params.rowHeight*r]} size={[params.colWidth, params.rowHeight/2]} fill="teal" opacity="0.25"/>
+          )
+        }
+        else if (fy > params.rowHeight/2) {
+          const c = Math.floor(gx / params.colWidth);
+          const r = Math.round(gy / params.rowHeight);
+          prox.vhalf = 'B';
+          near.push(
+            <S.Rect key="proximate-tb" at={[params.colWidth*c, params.rowHeight*(r-0.5)]} size={[params.colWidth, params.rowHeight/2]} fill="teal" opacity="0.25"/>
+          )
+        }
+
+        // square half (left/right)
+        if (fx < params.colWidth/2) {
+          const c = Math.round(gx / params.colWidth);
+          const r = Math.floor(gy / params.rowHeight);
+          prox.hhalf = 'L';
+          near.push(
+            <S.Rect key="proximate-lr" at={[params.colWidth*c, params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight]} fill="brown" opacity="0.25"/>
+          )
+        }
+        else if (fx > params.colWidth/2) {
+          const c = Math.round(gx / params.colWidth);
+          const r = Math.floor(gy / params.rowHeight);
+          prox.hhalf = 'R';
+          near.push(
+            <S.Rect key="proximate-lr" at={[params.colWidth*(c-0.5), params.rowHeight*r]} size={[params.colWidth/2, params.rowHeight]} fill="brown" opacity="0.25"/>
+          )
+        }
       }
 
       // near row line
       if (on_x) {
         const c = Math.floor(gx / params.colWidth);
         const r = Math.round(gy / params.rowHeight);
-        near.push(
+        prox.on_x = r;
+        if (c >= 0 && c < params.cols) near.push(
           <S.Line key="proximate-x" from={[params.colWidth*c, params.rowHeight*r]} to={[params.colWidth*(c+1), params.rowHeight*r]} stroke="blue" strokeWidth={2}/>
         )
       }
@@ -172,7 +217,8 @@ function SVGrid (params) {
       if (on_y) {
         const c = Math.round(gx / params.colWidth);
         const r = Math.floor(gy / params.rowHeight);
-        near.push(
+        prox.on_y = c;
+        if (r >= 0 && r < params.rows) near.push(
           <S.Line key="proximate-y" from={[params.colWidth*c, params.rowHeight*r]} to={[params.colWidth*c, params.rowHeight*(r+1)]} stroke="purple" strokeWidth={2}/>
         )
       }
@@ -181,19 +227,22 @@ function SVGrid (params) {
       if (on_x && on_y) {
         const c = Math.round(gx / params.colWidth);
         const r = Math.round(gy / params.rowHeight);
+        prox.on_xy = { col: c, row: r };
         near.push(
           <S.Circle key="proximate-xy" at={[params.colWidth*c, params.rowHeight*r]} r={tolerance} stroke="red" strokeWidth={2} fill="transparent"/>
         )
       }
     }
 
-    return near;
+    return { near, prox };
   }
 
   const [ mouse, setMouse ] = useState({x: null, y: null});
   const { gx, gy } = xyToGrid({x: mouse.x, y: mouse.y });
-  const { row, col } = xyToCell({x: mouse.x, y: mouse.y});
-  const proximity = proximateTo({x: mouse.x, y: mouse.y, row, col, tolerance: (params.rowHeight + params.colWidth)/8});
+  const [ fx, fy ] = [ gx % params.colWidth, gy % params.rowHeight ];
+
+  const { row, col, oob } = xyToCell({x: mouse.x, y: mouse.y});
+  const { near, prox } = proximateTo({x: mouse.x, y: mouse.y, row, col, tolerance: (params.rowHeight + params.colWidth)/8});
 
   return (
     <div>
@@ -202,11 +251,11 @@ function SVGrid (params) {
         <S.G>
           {gridlines}
           {headers}
-          {proximity}
+          {near}
         </S.G>
       </S.SVG>
-      <div>(x, y) = ({mouse.x}, {mouse.y})<br/>(gx, gy) = ({gx}, {gy})<br/>(col, row) = ({col}, {row})</div>
-
+      <div>(x, y) = ({mouse.x}, {mouse.y})<br/>(gx, gy) = ({gx}, {gy})<br/>(fx, fy) = ({fx}, {fy})<br/>(col, row) = ({col}, {row}) [oob={oob ? 'Y' : 'N'}]</div>
+      <div>{JSON.stringify(prox)}</div>
     </div>
   )
 }

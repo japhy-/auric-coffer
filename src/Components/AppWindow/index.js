@@ -8,8 +8,8 @@ function AppWindow () {
   if (true) return (
     <SVGrid
       width={512} height={512}
-      rows={8} rowHeight={40} rowStyle={{stroke: 'green', strokeWidth: 2, strokeDasharray: [1,3]}} rowStart={0} rowHeader={true}
-      cols={8} colWidth={40} colStyle={{stroke: 'red', strokeWidth: 2, strokeDasharray: [1,3]}} colStart={0} colHeader={true}
+      rows={3} rowHeight={40} rowStyle={{stroke: 'green', strokeWidth: 2, strokeDasharray: [1,3]}} rowStart={0} rowHeader={false}
+      cols={3} colWidth={40} colStyle={{stroke: 'red', strokeWidth: 2, strokeDasharray: [1,3]}} colStart={0} colHeader={false}
     />
   );
 
