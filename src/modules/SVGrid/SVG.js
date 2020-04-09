@@ -44,6 +44,16 @@ export function Line ({from=[0,0], to, ...props}) {
 }
 
 
+export function Polyline ({...props}) {
+  return <polyline {...props}/>
+}
+
+
+export function Polygon ({...props}) {
+  return <polygon {...props}/>
+}
+
+
 export function Rect ({at=[0,0], size, ...props}) {
   if (props.r) {
     props.rx = props.r;
