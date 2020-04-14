@@ -1,4 +1,4 @@
-import React, { useContext, createContext, useEffect, useRef } from 'react';
+import React, { useContext, createContext } from 'react';
 import useSVGMouse, { SVGMouseContext } from './SVGMouse';
 import useNextId, { setPrefix } from '../Counter';
 import * as S from './SVG';
@@ -27,10 +27,12 @@ function SVGridContainer ({children, config}) {
   grid.xRatio = x => x * ratio + grid.viewBox[0];
   grid.yRatio = y => y * ratio + grid.viewBox[1];
 
+  /*
   useEffect(() => {
     console.log(config.width, config.height, grid.viewBox[3]/grid.viewBox[2], grid.viewBox);
   }, [])
-
+  */
+ 
   grid.xyToGridXY = ({x, y}) => {
     return (x !== null && y !== null) ? [ grid.xRatio(x), grid.yRatio(y) ] : [ null, null ];
   }
@@ -192,46 +194,28 @@ function SVGrid ({children, ...params}) {
   for (let i = 0; i <= cc; i++) gridlines.push(<S.Use href={`#${glc}`} key={`${glc}-n${i}`} at={[i*cw,0]}/>)
   
   const headers = [];
-  if (config.rows.header) for (let i = 0; i < rc; i++) headers.push(<S.Text key={`${glr}-h${i}`} fontFamily={config.rows.header.font || 'garamond'} fontSize={config.rows.header.size || rh/3} fill={config.rows.header.color || config.rows.style.stroke || 'black'} textAnchor="middle" at={[0.5 * -cw, (0.6 + i) * rh]}>{config.rows.start + i}</S.Text>);
-  if (config.cols.header) for (let i = 0; i < cc; i++) headers.push(<S.Text key={`${glc}-h${i}`} fontFamily={config.cols.header.font || 'garamond'} fontSize={config.cols.header.size || cw/3} fill={config.cols.header.color || config.cols.style.stroke || 'black'} textAnchor="middle" at={[(0.5 + i) * cw, 0.4 * -rh]}>{config.cols.start + i}</S.Text>);
+  if (config.rows.header) for (let i = 0; i < rc; i++) headers.push(<S.Text key={`${glr}-h${i}`} fontFamily={config.rows.header.font || 'garamond'} fontSize={config.rows.header.size || rh/2.5} fill={config.rows.header.color || config.rows.style.stroke || 'black'} textAnchor="middle" at={[0.5 * -cw, (0.6 + i) * rh]}>{config.rows.start + i}</S.Text>);
+  if (config.cols.header) for (let i = 0; i < cc; i++) headers.push(<S.Text key={`${glc}-h${i}`} fontFamily={config.cols.header.font || 'garamond'} fontSize={config.cols.header.size || cw/2.5} fill={config.cols.header.color || config.cols.style.stroke || 'black'} textAnchor="middle" at={[(0.5 + i) * cw, 0.4 * -rh]}>{config.cols.start + i}</S.Text>);
 
-  /*
-  const eventHandlers = {};
-  for (let k in params) {
-    if (k.match(/^on[A-Z]/)) {
-      eventHandlers[k] = params[k];
-      delete params[k];
-    }
-  }
-  */
-
-  params.onMouseOut = ev => {
-    mouse.setLastEvent(ev);
+ const onMouseOut = ev => {
     ev.preventDefault();
     const n = ev.nativeEvent;
 
     if (!document.getElementById(config.id).contains(n.toElement)) {
       mouse.setXY([null,null]);
-      // document.getElementById(config.id).blur();
     }
   };
 
-
-  const onMouseMove = params.onMouseMove || (() => {});
-  const isFirstRender = useRef(true);
-  useEffect(() => { isFirstRender.current ? (isFirstRender.current = false) : onMouseMove(mouse.lastEvent) }, [mouse.x, mouse.y]);
-
-  params.onMouseMove = ev => {
-    mouse.setLastEvent(ev);
+  const onMouseMove = ev => {
     ev.preventDefault();
     const n = ev.nativeEvent;
 
-    // document.getElementById(config.id).focus();
     mouse.setWinXY([n.x, n.y]);
     mouse.setXY([n.offsetX, n.offsetY]);
   };
 
   return (
+    <div {...{onMouseMove, onMouseOut}}>
       <S.SVG id={config.id} width={config.width} height={config.height} viewBox={grid.viewBox} {...params} preserveAspectRatio="xMinYMin meet">
         <S.Defs>
           <S.Line id={glr} from={[0,0]} to={[cc*cw,0]} {...config.rows.style}/>
@@ -249,6 +233,7 @@ function SVGrid ({children, ...params}) {
           {children}
         </S.G>
       </S.SVG>
+    </div>
   )
 }
 

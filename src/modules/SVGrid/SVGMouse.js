@@ -1,13 +1,9 @@
-import React, { createContext, useState } from 'react';
+import { createContext, useState } from 'react';
 
 const SVGMouseContext = createContext(null);
 
 function useSVGMouse ({config, grid}) {
   const mouse = {};
-  const m = {};
-
-  [ mouse.lastEvent, m.setLastEvent ] = useState(null);
-  mouse.setLastEvent = (ev) => { ev.persist(); m.setLastEvent(ev) };
 
   [ mouse.ctrl, mouse.setCtrl ] = useState(false);
 

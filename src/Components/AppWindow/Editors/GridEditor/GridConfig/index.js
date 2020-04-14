@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { GridContext } from '../GridEditor';
+import { GridContext } from '../../GridEditor';
 
 
 function GridConfig () {

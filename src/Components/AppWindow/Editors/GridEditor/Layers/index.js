@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
-import * as S from '../../SVG';
-import { GridContext, MouseContext, ObjectsContext, EventsContext } from '../GridEditor';
+import * as S from '../../../../../SVG';
+import { GridContext, MouseContext, ObjectsContext, EventsContext } from '../../GridEditor';
 import { GridObject } from '../Grid';
 
 
@@ -221,7 +221,7 @@ function EventDefs () {
 
 
 function Events () {
-  const { g } = useContext(GridContext);
+  // const { g } = useContext(GridContext);
   const events = useContext(EventsContext);
 
   return (

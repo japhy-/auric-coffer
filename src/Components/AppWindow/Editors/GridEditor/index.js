@@ -1,6 +1,8 @@
 import React, { createContext, useState } from 'react';
-import * as Comp from '../../Components';
-import { useGridConfig } from '../../Components/GridConfig';
+// import * as Comp from '../../..';
+import Grid from './Grid';
+import GridConfig from './GridConfig';
+import { useGridConfig } from './GridConfig';
 
 const GridContext = createContext(null);
 const MouseContext = createContext(null);
@@ -20,13 +22,12 @@ function GridEditor () {
           <MouseContext.Provider value={mouse}>
             <div className="LeftPane">
               <div className="WorkSpace">
-                <Comp.Grid/>
+                <Grid/>
               </div>
             </div>
             <div className="RightPane">
               <div className="Console">
-                <Comp.GridConfig/>
-                <Comp.MouseDetails/>
+                <GridConfig/>
               </div>
             </div>
           </MouseContext.Provider>

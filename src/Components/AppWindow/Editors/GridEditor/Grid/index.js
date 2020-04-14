@@ -1,8 +1,8 @@
 import React, { useContext, useState } from 'react';
 
-import * as S from '../../SVG';
+import * as S from '../../../../../SVG';
 import * as Layers from '../Layers';
-import { GridContext, MouseContext, ObjectsContext, EventsContext } from '../GridEditor';
+import { GridContext, MouseContext, ObjectsContext, EventsContext } from '../../GridEditor';
 
 const item_cycle = {
   wall: 'rubble',
