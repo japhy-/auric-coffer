@@ -8,6 +8,11 @@ HTML, BODY, #root, .App {
   flex-flow: column;
 }
 
+.App:focus {
+  outline: none !important;
+}
+
+
 .MenuBar {
   display: flex;
   flex: 0 1 auto;

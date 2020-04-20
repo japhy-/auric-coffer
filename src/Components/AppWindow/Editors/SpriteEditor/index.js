@@ -84,6 +84,8 @@ function useSpriteDrawing () {
   [ drawing.active, drawing.setActive ] = useState(false);
   [ drawing.objects, d._setObjects ] = useState([]);
   [ drawing.hover, drawing.setHover ] = useState(null);
+  [ drawing.keys, drawing.setKeys ] = useState({});
+  [ drawing.dragObject, drawing.setDragObject ] = useState(null);
 
   [ drawing.lastPoint, drawing.setLastPoint ] = useState([]);
   [ drawing.points, d._setPoints ] = useState([]);
@@ -120,16 +122,33 @@ function SpriteEditorPanes () {
   const events = {
     onMouseMove: (ev) => {
       // console.log('onMouseMove', ev);
-      mouse.setCtrl(ev.ctrlKey);
 
-      if (drawing.active && (ev.ctrlKey ? mouse.gx !== null : mouse.prox.onXY)) {
-        drawing.setLastPoint(ev.ctrlKey ? mouse.gxy : mouse.prox.onXY.at);
+      if (drawing.active && (drawing.keys.ctrl ? mouse.gx !== null : mouse.prox.onXY)) {
+        if (! (ev.buttons & 1)) {
+        }
+        drawing.setLastPoint(drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
       }
-      else if (drawing.dragPoint && (ev.ctrlKey ? mouse.gx !== null : mouse.prox.onXY)) {
+      else if (drawing.dragPoint && (drawing.keys.ctrl ? mouse.gx !== null : mouse.prox.onXY)) {
+        if (! (ev.buttons & 1)) {
+          drawing.dragPoint.object.editing = false;
+          drawing.setDragPoint(null);
+          drawing.setWasDragging(true);
+          return;
+        }
         console.log(`adjusting ${drawing.dragPointId}`);
-        drawing.moveDragPoint(ev.ctrlKey ? mouse.gxy : mouse.prox.onXY.at);
+        drawing.moveDragPoint(drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
+      }
+      else if (drawing.dragObject && (drawing.keys.ctrl ? (mouse.gx !== null) : mouse.prox.onXY)) {
+        if (! (ev.buttons & 1)) {
+          drawing.dragObject.dragging = null;
+          drawing.setDragObject(null);
+          return;
+        }
+        const pos = drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at;
+        drawing.moveObject(drawing.dragObject, [ pos[0] - drawing.dragObject.dragging[0], pos[1] - drawing.dragObject.dragging[1] ]);
       }
     },
+
     onMouseUp: (ev) => {
       if (drawing.dragPoint) {
         ev.preventDefault();
@@ -140,6 +159,7 @@ function SpriteEditorPanes () {
         drawing.setWasDragging(true);
       }
     },
+
     onClick: (ev) => {
       ev.preventDefault();
       if (drawing.dragPoint) return;
@@ -148,14 +168,16 @@ function SpriteEditorPanes () {
         drawing.setWasDragging(false);
         return;
       }
+
       //console.log(`mouse @ ${mouse.gx}, ${mouse.gy} -- ${ev.button}`);
-      if (ev.ctrlKey ? mouse.gx === null : !mouse.prox.onXY) return;
+      if (drawing.keys.ctrl ? mouse.gx === null : !mouse.prox.onXY) return;
       if (! drawing.active) {
         drawing.setActive('polyline');
       }
-      drawing.addPoint(ev.ctrlKey ? mouse.gxy : mouse.prox.onXY.at);
+      drawing.addPoint(drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
       drawing.setLastPoint([]);
     },
+
     onContextMenu: (ev) => {
       ev.preventDefault();
       // console.log(`mouse @ ${mouse.gx}, ${mouse.gy} -- ${ev.button}`);
@@ -165,9 +187,12 @@ function SpriteEditorPanes () {
         drawing.setActive(false);
       }
     },
+
     onKeyDown: (ev) => {
       ev.preventDefault();
-      // ev.persist(); console.log(ev);
+      ev.persist();
+      drawing.setKeys({ alt: ev.altKey, ctrl: ev.ctrlKey, shift: ev.shiftKey, key: ev.key, code: ev.keyCode });
+      // console.log(`keyDown`, ev)
 
       if (ev.key === 'Escape') {
         if (drawing.active) {
@@ -176,10 +201,13 @@ function SpriteEditorPanes () {
         }
       }
     },
-    onKeyPress: (ev) => {
+
+    onKeyUp: (ev) => {
       ev.preventDefault();
       ev.persist();
-      // console.log(`you pressed`, ev)
+      // console.log(`keyUp`, ev)
+
+      drawing.setKeys({});
     },
   }
 
@@ -192,7 +220,7 @@ function SpriteEditorPanes () {
             SVG [data-xhoverable]:hover { filter: url(#glow) }
           `}</style>
           <SVGrid tabIndex={-1} {...events}>
-            {!mouse.ctrl && !drawing.hover && !drawing.dragPoint && <Proximity elements={mouse.prox}/>}
+            {!drawing.keys.ctrl && !drawing.hover && !drawing.dragPoint && <Proximity elements={mouse.prox}/>}
             <S.Defs>
               <filter id="glow">
                 <feDropShadow dx={0} dy={0} stdDeviation={10} floodColor="red"/>
@@ -207,12 +235,19 @@ function SpriteEditorPanes () {
       </div>
       <div className="RightPane">
         <div className="Console">
+          <KeyDetails/>
           <Details/>
           <MouseHover/>
         </div>
       </div>
     </>
   );
+}
+
+
+function KeyDetails () {
+  const drawing = useContext(SpriteDrawingContext);
+  return JSON.stringify(drawing.keys);
 }
 
 
@@ -234,13 +269,11 @@ function DrawnObject ({object, index}) {
     <S.G
       id={g_id}
       onMouseOver={(ev) => {
-        // console.log(`on obj-${object.n}`);
         object.hover = true;
         drawing.setHover(object);
       }}
       onMouseOut={(ev) => {
-        // console.log(`off obj-${object.n}`);
-        if (object.dragging) return;
+        if (drawing.dragObject) return;
         if (! document.getElementById(g_id).contains(ev.nativeEvent.toElement)) {
           object.hover = false;
           drawing.setHover(null);
@@ -264,25 +297,20 @@ function DrawnObject ({object, index}) {
         onMouseDown={(ev) => {
           ev.preventDefault();
           object.origPoints = object.points;
-          object.dragging = (ev.ctrlKey ? mouse.gxy : (mouse.prox.onXY ? mouse.prox.onXY.at : null));
+          object.dragging = (drawing.keys.ctrl ? mouse.gxy : (mouse.prox.onXY ? mouse.prox.onXY.at : null));
+          drawing.setDragObject(object);
         }}
         onMouseUp={(ev) => {
           ev.preventDefault();
           object.dragging = null;
-        }}
-        onMouseMove={(ev) => {
-          ev.preventDefault();
-          if (object.dragging && (ev.ctrlKey ? (mouse.gx !== null) : mouse.prox.onXY)) {
-            const pos = ev.ctrlKey ? mouse.gxy : mouse.prox.onXY.at;
-            drawing.moveObject(object, [ pos[0] - object.dragging[0], pos[1] - object.dragging[1] ]);
-          }
+          drawing.setDragObject(null);
         }}
         onContextMenu={(ev) => {
           ev.preventDefault();
           if (drawing.active) return;
           ev.stopPropagation();
           // console.log(`right-clicked obj-${object.n}`);
-          if (mouse.prox.onXY) drawing.addIntermediatePointToObject(object, ev.ctrlKey ? mouse.gxy : mouse.prox.onXY.at);
+          if (mouse.prox.onXY) drawing.addIntermediatePointToObject(object, drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
         }}
       />
       <DrawnObjectPoints object={object} index={index}/>
@@ -408,7 +436,7 @@ function Proximity ({elements}) {
 function MouseHover () {
   const mouse = useContext(SVGMouseContext);
 
-  return mouse.x !== null ? (
+  return !mouse.oob ? (
     <div style={{position: 'absolute', top: mouse.winY+16, left: mouse.winX+16, backgroundColor: 'white', fontSize: '67%', padding: '2px', border: '1px solid black', borderRadius: '6px'}}>
       {Math.round(mouse.gx)}, {Math.round(mouse.gy)}
     </div>
@@ -426,9 +454,8 @@ function Details () {
         (gx, gy) = ({mouse.gx}, {mouse.gy})<br/>
         (fx, fy) = ({mouse.fx}, {mouse.fy})<br/>
         (col, row) = ({mouse.col}, {mouse.row}) [oob={mouse.oob ? 'Y' : 'N'}]<br/>
-        mouse.ctrl = {mouse.ctrl ? 'Y' : 'N'}
       </div>
-      <div>{JSON.stringify(mouse.prox)}</div>
+      <div>{"" && JSON.stringify(mouse.prox)}</div>
     </div>
   );
 }

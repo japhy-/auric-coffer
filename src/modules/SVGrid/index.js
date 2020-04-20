@@ -197,25 +197,16 @@ function SVGrid ({children, ...params}) {
   if (config.rows.header) for (let i = 0; i < rc; i++) headers.push(<S.Text key={`${glr}-h${i}`} fontFamily={config.rows.header.font || 'garamond'} fontSize={config.rows.header.size || rh/2.5} fill={config.rows.header.color || config.rows.style.stroke || 'black'} textAnchor="middle" at={[0.5 * -cw, (0.6 + i) * rh]}>{config.rows.start + i}</S.Text>);
   if (config.cols.header) for (let i = 0; i < cc; i++) headers.push(<S.Text key={`${glc}-h${i}`} fontFamily={config.cols.header.font || 'garamond'} fontSize={config.cols.header.size || cw/2.5} fill={config.cols.header.color || config.cols.style.stroke || 'black'} textAnchor="middle" at={[(0.5 + i) * cw, 0.4 * -rh]}>{config.cols.start + i}</S.Text>);
 
- const onMouseOut = ev => {
-    ev.preventDefault();
-    const n = ev.nativeEvent;
-
-    if (!document.getElementById(config.id).contains(n.toElement)) {
-      mouse.setXY([null,null]);
-    }
+  const onMouseOut = ev => {
+    if (!document.getElementById(config.id).contains(ev.nativeEvent.toElement)) mouse.setActive(false);
   };
 
-  const onMouseMove = ev => {
-    ev.preventDefault();
-    const n = ev.nativeEvent;
-
-    mouse.setWinXY([n.x, n.y]);
-    mouse.setXY([n.offsetX, n.offsetY]);
+  const onMouseOver = ev => {
+    mouse.setActive(true);
   };
 
   return (
-    <div {...{onMouseMove, onMouseOut}}>
+    <div {...{onMouseOver, onMouseOut}}>
       <S.SVG id={config.id} width={config.width} height={config.height} viewBox={grid.viewBox} {...params} preserveAspectRatio="xMinYMin meet">
         <S.Defs>
           <S.Line id={glr} from={[0,0]} to={[cc*cw,0]} {...config.rows.style}/>

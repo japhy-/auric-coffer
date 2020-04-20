@@ -1,14 +1,15 @@
-import { createContext, useState } from 'react';
+import { createContext, useState, useContext } from 'react';
+import { AuricContext } from '../../App';
 
 const SVGMouseContext = createContext(null);
 
 function useSVGMouse ({config, grid}) {
+  const auric = useContext(AuricContext);
   const mouse = {};
 
-  [ mouse.ctrl, mouse.setCtrl ] = useState(false);
+  [ mouse.active, mouse.setActive ] = useState(false);
+  [ mouse.winX, mouse.winY, mouse.x, mouse.y ] = mouse.active ? [ ...auric.mouse.XY, ...auric.mouse.offsetXY ] : [null, null, null, null];
 
-  [ [ mouse.winX, mouse.winY ], mouse.setWinXY ] = useState([null, null]);
-  [ [ mouse.x, mouse.y ], mouse.setXY ] = useState([null, null]);
   const [ cw, rh ] = [ config.cols.width, config.rows.height ];
 
   [ mouse.gx, mouse.gy ] = grid.xyToGridXY(mouse);
