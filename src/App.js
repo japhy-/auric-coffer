@@ -10,7 +10,7 @@ function App () {
 
   return (
     <AuricContext.Provider value={auric}>
-      <div className="App" tabIndex="-1" onMouseMove={auric.updateMouse} onMouseDown={ev => ev.preventDefault()} onKeyDown={auric.updateKey} onKeyUp={auric.updateKey}>
+      <div id="AuricCofferApp" className="App" tabIndex="-1" {...auric.events}>
         <AuricCoffer/>
         <div>
           {auric.mouse.X},{auric.mouse.Y} | {auric.mouse.offsetX},{auric.mouse.offsetY} | {auric.mouse.buttons}
@@ -29,8 +29,21 @@ function useAuricContext () {
 
   auric.mouse = useAuricMouse();
   auric.key = useAuricKeyboard();
-  auric.updateMouse = auric.mouse.update;
-  auric.updateKey = auric.key.update;
+  
+  auric.focused = null;
+  auric.findFocus = (ev) => {
+    let el = ev.target;
+    while (el && ! el.hasAttribute('tabindex')) el = el.parentNode;
+    return el && el !== auric.focused && (auric.focused = el).focus();
+  }
+
+  auric.events = {
+    onMouseOver: auric.findFocus,
+    onMouseDown: ev => ev.preventDefault(),
+    onMouseMove: auric.mouse.update,
+    onKeyDown: auric.key.update,
+    onKeyUp: auric.key.update,
+  }
 
   return auric;
 }
@@ -40,12 +53,13 @@ function useAuricMouse () {
   const mouse = {};
   const m = {};
 
-  [ [ mouse.X, mouse.Y ], m.setXY ] = useState([null, null]);
-  [ [ mouse.offsetX, mouse.offsetY ], m.setOffsetXY ] = useState([null, null]);
-  [ mouse.buttons, m.setButtons ] = useState(0);
+  [ mouse.XY, m.setXY ] = useState([null, null]);
+  [ mouse.X, mouse.Y ] = mouse.XY;
 
-  mouse.XY = [ mouse.X, mouse.Y ];
-  mouse.offsetXY = [ mouse.offsetX, mouse.offsetY ];
+  [ mouse.offsetXY, m.setOffsetXY ] = useState([null, null]);
+  [ mouse.offsetX, mouse.offsetY ] = mouse.offsetXY;
+    
+  [ mouse.buttons, m.setButtons ] = useState(0);
   mouse.buttonLeft = mouse.buttons & 1;
   mouse.buttonRight = mouse.buttons & 2;
 

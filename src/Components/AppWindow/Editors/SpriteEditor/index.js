@@ -3,6 +3,7 @@ import { SVGMouseContext } from '../../../../modules/SVGrid/SVGMouse';
 import SVGrid, { SVGridContainer } from '../../../../modules/SVGrid';
 import * as S from '../../../../modules/SVGrid/SVG';
 import useNextId, { setPrefix } from '../../../../modules/Counter';
+import { AuricContext } from '../../../../App';
 
 const SpriteDrawingContext = createContext(null);
 
@@ -53,6 +54,7 @@ function SpriteDrawingContainer ({children}) {
 
 
 function useSpriteDrawing () {
+  const { key } = useContext(AuricContext);
   const drawing = {};
   const d = {};
 
@@ -84,7 +86,8 @@ function useSpriteDrawing () {
   [ drawing.active, drawing.setActive ] = useState(false);
   [ drawing.objects, d._setObjects ] = useState([]);
   [ drawing.hover, drawing.setHover ] = useState(null);
-  [ drawing.keys, drawing.setKeys ] = useState({});
+  // [ drawing.keys, drawing.setKeys ] = useState({});
+  drawing.keys = key;
   [ drawing.dragObject, drawing.setDragObject ] = useState(null);
 
   [ drawing.lastPoint, drawing.setLastPoint ] = useState([]);
@@ -138,7 +141,7 @@ function SpriteEditorPanes () {
         console.log(`adjusting ${drawing.dragPointId}`);
         drawing.moveDragPoint(drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
       }
-      else if (drawing.dragObject && (drawing.keys.ctrl ? (mouse.gx !== null) : mouse.prox.onXY)) {
+      else if (drawing.dragObject && drawing.dragObject.dragging && (drawing.keys.ctrl ? (mouse.gx !== null) : mouse.prox.onXY)) {
         if (! (ev.buttons & 1)) {
           drawing.dragObject.dragging = null;
           drawing.setDragObject(null);
@@ -191,8 +194,7 @@ function SpriteEditorPanes () {
     onKeyDown: (ev) => {
       ev.preventDefault();
       ev.persist();
-      drawing.setKeys({ alt: ev.altKey, ctrl: ev.ctrlKey, shift: ev.shiftKey, key: ev.key, code: ev.keyCode });
-      // console.log(`keyDown`, ev)
+      console.log(`keyDown`, ev)
 
       if (ev.key === 'Escape') {
         if (drawing.active) {
@@ -206,8 +208,6 @@ function SpriteEditorPanes () {
       ev.preventDefault();
       ev.persist();
       // console.log(`keyUp`, ev)
-
-      drawing.setKeys({});
     },
   }
 
@@ -223,7 +223,7 @@ function SpriteEditorPanes () {
             {!drawing.keys.ctrl && !drawing.hover && !drawing.dragPoint && <Proximity elements={mouse.prox}/>}
             <S.Defs>
               <filter id="glow">
-                <feDropShadow dx={0} dy={0} stdDeviation={10} floodColor="red"/>
+                <feDropShadow dx={0} dy={0} stdDeviation={5} floodColor="red"/>
               </filter>
             </S.Defs>
             <S.G opacity="0.75">
@@ -236,10 +236,11 @@ function SpriteEditorPanes () {
       <div className="RightPane">
         <div className="Console">
           <KeyDetails/>
+          <hr/>
           <Details/>
-          <MouseHover/>
         </div>
       </div>
+      <MouseHover/>
     </>
   );
 }
@@ -247,7 +248,8 @@ function SpriteEditorPanes () {
 
 function KeyDetails () {
   const drawing = useContext(SpriteDrawingContext);
-  return JSON.stringify(drawing.keys);
+  const { key } = useContext(AuricContext);
+  return `${key.type} ${key.key}`;
 }
 
 
@@ -269,8 +271,10 @@ function DrawnObject ({object, index}) {
     <S.G
       id={g_id}
       onMouseOver={(ev) => {
-        object.hover = true;
-        drawing.setHover(object);
+        if (! drawing.hover) {
+          object.hover = true;
+          drawing.setHover(object);
+        }
       }}
       onMouseOut={(ev) => {
         if (drawing.dragObject) return;
@@ -448,7 +452,7 @@ function Details () {
   const mouse = useContext(SVGMouseContext);
 
   return (
-    <div >
+    <div>
       <div>
         (x, y) = ({mouse.x}, {mouse.y})<br/>
         (gx, gy) = ({mouse.gx}, {mouse.gy})<br/>
