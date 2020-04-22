@@ -32,8 +32,6 @@ function useKeyboardMonitor () {
   [ mon.lastKey, mon.setLastKey ] = useState({});
 
   mon.onKey = (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
     ev.persist();
     mon.setEvent(ev);
 
@@ -60,9 +58,11 @@ function useKeyboardMonitor () {
     let stop = false;
 
     (mon.triggers[seq] || []).forEach(t => {
-      if (! stop) {
-        t.handler(t.element, mon.keys);
+      if (! stop && !(t.pure && ["INPUT","TEXTAREA","SELECT"].includes(mon.event.target.nodeName))) {
         stop = t.stop;
+        console.log("triggering");
+        try { t.handler(t.element, mon.keys) } catch (err) { }
+        console.log("triggered");
         // if (t.once) mon.setKeys({});
       }
     })
@@ -71,14 +71,14 @@ function useKeyboardMonitor () {
   mon.register = (t, ref) => {
     mon.setTriggers(trig => {
       let idx = {};
-      const { children, noRepeat, stopPropagation, keys=[], ...cfg } = t;
+      const { children, noRepeat, stopPropagation, nonInput, keys=[], ...cfg } = t;
       if (keys.length) {
         keys.forEach(k => {
           const seq = [...Object.keys(cfg), k].map(i => i.toLowerCase()).sort().join(" ");
           if (! trig[seq]) trig[seq] = [];
           if (! idx[seq]) idx[seq] = 0;
           // console.log(`inserting ${seq} @ ${idx[seq]} for ${ref.current}`)
-          trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat});
+          trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, pure: nonInput});
         })
       }
       else {
@@ -86,7 +86,7 @@ function useKeyboardMonitor () {
         if (! trig[seq]) trig[seq] = [];
         if (! idx[seq]) idx[seq] = 0;
         // console.log(`inserting ${seq} @ ${idx[seq]} for ${ref.current}`)
-        trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat});
+        trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, pure: nonInput});
       }
       return trig;
     })
@@ -94,7 +94,7 @@ function useKeyboardMonitor () {
 
   mon.unregister = (t, ref) => {
     mon.setTriggers(trig => {
-      const { children, noRepeat, stopPropagation, keys=[], ...cfg } = t;
+      const { children, noRepeat, stopPropagation, nonInput, keys=[], ...cfg } = t;
       if (keys.length) {
         keys.forEach(k => {
           const seq = [...Object.keys(cfg), k].map(i => i.toLowerCase()).sort().join(" ");

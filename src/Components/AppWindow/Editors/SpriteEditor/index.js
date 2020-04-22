@@ -183,6 +183,9 @@ function SpriteEditorPanes () {
   const drawing = useContext(SpriteDrawingContext);
 
   const events = {
+    onMouseDown: (ev) => {
+      ev.preventDefault();
+    },
     onMouseMove: (ev) => {
       // console.log('onMouseMove', ev);
 
@@ -271,7 +274,7 @@ function SpriteEditorPanes () {
       // console.log(`keyUp`, ev)
     },
 */
-   }
+  }
 
   return (
     <>
@@ -325,6 +328,9 @@ function SpriteEditorPanes () {
           <KeyDetails/>
           <hr/>
           <Details/>
+          <hr/>
+          <input type="text" defaultValue="hello" onChange={ev => console.log(ev.target.value)}/>
+          <KeyboardEvent nonInput control x>{() => alert("Ctrl-X")}</KeyboardEvent>
         </div>
       </div>
       <MouseHover/>

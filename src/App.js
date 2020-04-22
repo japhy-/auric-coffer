@@ -58,16 +58,7 @@ function useAuric () {
 
   auric.mouse = useAuricMouse();
   
-  auric.focused = null;
-  auric.findFocus = (ev) => {
-    let el = ev.target;
-    while (el && ! el.hasAttribute('tabindex')) el = el.parentNode;
-    return el && el !== auric.focused && (auric.focused = el).focus();
-  }
-
   auric.events = {
-    // onMouseOver: auric.findFocus,
-    onMouseDown: ev => ev.preventDefault(),
     onMouseMove: auric.mouse.update,
   }
 
