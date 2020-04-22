@@ -1,9 +1,10 @@
-import React, { useContext, useState, createContext } from 'react';
+import React, { useContext, useState, createContext, useEffect } from 'react';
 import { SVGMouseContext } from '../../../../modules/SVGrid/SVGMouse';
 import SVGrid, { SVGridContainer } from '../../../../modules/SVGrid';
 import * as S from '../../../../modules/SVGrid/SVG';
 import useNextId, { setPrefix } from '../../../../modules/Counter';
 import { AuricContext } from '../../../../App';
+import { KeyboardMonitorContext, KeyboardEvent } from '../../../../modules/KeyboardMonitor';
 
 const SpriteDrawingContext = createContext(null);
 
@@ -54,7 +55,7 @@ function SpriteDrawingContainer ({children}) {
 
 
 function useSpriteDrawing () {
-  const { key } = useContext(AuricContext);
+  const mon = useContext(KeyboardMonitorContext);
   const drawing = {};
   const d = {};
 
@@ -82,12 +83,14 @@ function useSpriteDrawing () {
     return { points: pts, indices: idx };
   }
 
+  drawing.key = mon;
+  drawing.colors = [ 'yellow', 'red', 'blue', 'green', 'purple', 'brown', 'cyan', 'lime', 'magenta', 'orange' ];
+  [ drawing.lastColor, drawing.setLastColor ] = useState(-1);
+
   [ drawing.mode, drawing.setMode ] = useState('draw');
   [ drawing.active, drawing.setActive ] = useState(false);
   [ drawing.objects, d._setObjects ] = useState([]);
   [ drawing.hover, drawing.setHover ] = useState(null);
-  // [ drawing.keys, drawing.setKeys ] = useState({});
-  drawing.keys = key;
   [ drawing.dragObject, drawing.setDragObject ] = useState(null);
 
   [ drawing.lastPoint, drawing.setLastPoint ] = useState([]);
@@ -95,10 +98,67 @@ function useSpriteDrawing () {
   [ drawing.dragPoint, drawing.setDragPoint ] = useState(null);
   [ drawing.wasDragging, drawing.setWasDragging ] = useState(false);
 
-  drawing.addObject = (obj) => d._setObjects(objs => objs.push({ ...obj, transform: [0, 0], n: objs.length }) && objs);
-  drawing.removeObject = (obj) => d._setObjects(objs => objs.filter(o => o !== obj));
+  drawing.addObject = (obj) => {
+    drawing.setLastColor(c => {
+      c = (c+1) % drawing.colors.length;
+      d._setObjects(objs => objs.push({ ...obj, transform: [0, 0], n: objs.length, color: c }) && objs);
+      return c;
+    })
+  };
+  drawing.removeObject = (obj) => {
+    if (obj === drawing.hover) drawing.setHover(null);
+    d._setObjects(objs => objs.filter(o => o !== obj));
+  };
   drawing.moveObject = (obj, t) => {
     d._setObjects(objs => objs.map(o => o === obj ? ((o.points = o.origPoints.map(p => [p[0] + t[0], p[1] + t[1]])) && o) : o))
+  };
+  drawing.bringObjectBackward = (obj) => {
+    d._setObjects(objs => {
+      for (let i = 1; i < objs.length; i++) {
+        if (objs[i] === obj) {
+          [ objs[i], objs[i-1] ] = [ objs[i-1], objs[i] ];
+          break;
+        }
+      }
+      return objs;
+    })
+  };
+  drawing.bringObjectForward = (obj) => {
+    d._setObjects(objs => {
+      for (let i = 0; i < objs.length-1; i++) {
+        if (objs[i] === obj) {
+          [ objs[i], objs[i+1] ] = [ objs[i+1], objs[i] ];
+          break;
+        }
+      }
+      return objs;
+    })
+  };
+  drawing.bringObjectToBack = (obj) => {
+    d._setObjects(objs => {
+      for (let i = 1; i < objs.length; i++) {
+        if (objs[i] === obj) {
+          objs = [obj, ...objs.slice(0, i), ...objs.slice(i+1)];
+          break;
+        }
+      }
+      return objs;
+    })
+  };
+  drawing.bringObjectToFront = (obj) => {
+    d._setObjects(objs => {
+      for (let i = 0; i < objs.length-1; i++) {
+        if (objs[i] === obj) {
+          objs = [...objs.slice(0, i), ...objs.slice(i+1), obj];
+          break;
+        }
+      }
+      return objs;
+    })
+  };
+  drawing.changeObjectColor = (obj, i=null) => {
+    obj.color = (i === null ? (obj.color + 1) : i) % drawing.colors.length;
+    drawing.setLastColor(obj.color);
   };
   drawing.addPointToObject = (obj, pt) => d._setObjects(objs => objs.map(o => o === obj ? (o.points.push(pt) && o) : o));
   drawing.addIntermediatePointToObject = (obj, pt) => {
@@ -126,12 +186,12 @@ function SpriteEditorPanes () {
     onMouseMove: (ev) => {
       // console.log('onMouseMove', ev);
 
-      if (drawing.active && (drawing.keys.ctrl ? mouse.gx !== null : mouse.prox.onXY)) {
+      if (drawing.active && (drawing.key.lastKey.ctrl ? mouse.gx !== null : mouse.prox.onXY)) {
         if (! (ev.buttons & 1)) {
         }
-        drawing.setLastPoint(drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
+        drawing.setLastPoint(drawing.key.lastKey.ctrl ? mouse.gxy : mouse.prox.onXY.at);
       }
-      else if (drawing.dragPoint && (drawing.keys.ctrl ? mouse.gx !== null : mouse.prox.onXY)) {
+      else if (drawing.dragPoint && (drawing.key.lastKey.ctrl ? mouse.gx !== null : mouse.prox.onXY)) {
         if (! (ev.buttons & 1)) {
           drawing.dragPoint.object.editing = false;
           drawing.setDragPoint(null);
@@ -139,16 +199,16 @@ function SpriteEditorPanes () {
           return;
         }
         console.log(`adjusting ${drawing.dragPointId}`);
-        drawing.moveDragPoint(drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
+        drawing.moveDragPoint(drawing.key.lastKey.ctrl ? mouse.gxy : mouse.prox.onXY.at);
       }
-      else if (drawing.dragObject && drawing.dragObject.dragging && (drawing.keys.ctrl ? (mouse.gx !== null) : mouse.prox.onXY)) {
+      else if (drawing.dragObject && drawing.dragObject.dragging) {
         if (! (ev.buttons & 1)) {
           drawing.dragObject.dragging = null;
           drawing.setDragObject(null);
           return;
         }
-        const pos = drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at;
-        drawing.moveObject(drawing.dragObject, [ pos[0] - drawing.dragObject.dragging[0], pos[1] - drawing.dragObject.dragging[1] ]);
+        const pos = drawing.key.lastKey.ctrl ? mouse.gxy : (mouse.prox.onXY && mouse.prox.onXY.at);
+        if (pos) drawing.moveObject(drawing.dragObject, [ pos[0] - drawing.dragObject.dragging[0], pos[1] - drawing.dragObject.dragging[1] ]);
       }
     },
 
@@ -173,11 +233,11 @@ function SpriteEditorPanes () {
       }
 
       //console.log(`mouse @ ${mouse.gx}, ${mouse.gy} -- ${ev.button}`);
-      if (drawing.keys.ctrl ? mouse.gx === null : !mouse.prox.onXY) return;
+      if (drawing.key.lastKey.ctrl ? mouse.gx === null : !mouse.prox.onXY) return;
       if (! drawing.active) {
         drawing.setActive('polyline');
       }
-      drawing.addPoint(drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
+      drawing.addPoint(drawing.key.lastKey.ctrl ? mouse.gxy : mouse.prox.onXY.at);
       drawing.setLastPoint([]);
     },
 
@@ -191,6 +251,7 @@ function SpriteEditorPanes () {
       }
     },
 
+/*
     onKeyDown: (ev) => {
       ev.preventDefault();
       ev.persist();
@@ -209,7 +270,8 @@ function SpriteEditorPanes () {
       ev.persist();
       // console.log(`keyUp`, ev)
     },
-  }
+*/
+   }
 
   return (
     <>
@@ -217,10 +279,9 @@ function SpriteEditorPanes () {
         <div className="WorkSpace">
           <style type="text/css">{`
             SVG:focus { outline: none !important }
-            SVG [data-xhoverable]:hover { filter: url(#glow) }
           `}</style>
-          <SVGrid tabIndex={-1} {...events}>
-            {!drawing.keys.ctrl && !drawing.hover && !drawing.dragPoint && <Proximity elements={mouse.prox}/>}
+          <SVGrid {...events}>
+            {!drawing.key.lastKey.ctrl && !drawing.hover && !drawing.dragPoint && <Proximity elements={mouse.prox}/>}
             <S.Defs>
               <filter id="glow">
                 <feDropShadow dx={0} dy={0} stdDeviation={5} floodColor="red"/>
@@ -231,6 +292,32 @@ function SpriteEditorPanes () {
               {drawing.points && <S.Polyline points={drawing.points.map(p => p.join(" ")).join(" ") + " " + drawing.lastPoint.join(" ")} stroke="red" fill="none" vectorEffect="non-scaling-stroke"/>}
             </S.G>
           </SVGrid>
+          {drawing.active && (
+            <KeyboardEvent escape>{() => {
+              drawing.clearPoints();
+              drawing.setActive(false);
+            }}</KeyboardEvent>
+          )}
+          {drawing.hover && (<>
+            <KeyboardEvent d>{() => {
+              drawing.removeObject(drawing.hover);
+            }}</KeyboardEvent>
+            <KeyboardEvent f>{() => {
+              drawing.bringObjectForward(drawing.hover);
+            }}</KeyboardEvent>
+            <KeyboardEvent b>{() => {
+              drawing.bringObjectBackward(drawing.hover);
+            }}</KeyboardEvent>
+            <KeyboardEvent shift f>{() => {
+              drawing.bringObjectToFront(drawing.hover);
+            }}</KeyboardEvent>
+            <KeyboardEvent shift b>{() => {
+              drawing.bringObjectToBack(drawing.hover);
+            }}</KeyboardEvent>
+            <KeyboardEvent c>{() => {
+              drawing.changeObjectColor(drawing.hover);
+            }}</KeyboardEvent>
+          </>)}
         </div>
       </div>
       <div className="RightPane">
@@ -248,8 +335,8 @@ function SpriteEditorPanes () {
 
 function KeyDetails () {
   const drawing = useContext(SpriteDrawingContext);
-  const { key } = useContext(AuricContext);
-  return `${key.type} ${key.key}`;
+  const mon = useContext(KeyboardMonitorContext);
+  return null; // return `${JSON.stringify(mon.lastKey || {})}`;
 }
 
 
@@ -267,11 +354,11 @@ function DrawnObject ({object, index}) {
   const drawing = useContext(SpriteDrawingContext);
   const g_id = useNextId();
 
-  return (
+  return object && object.points && (
     <S.G
       id={g_id}
       onMouseOver={(ev) => {
-        if (! drawing.hover) {
+        if (! drawing.hover && ! drawing.dragPoint) {
           object.hover = true;
           drawing.setHover(object);
         }
@@ -288,7 +375,7 @@ function DrawnObject ({object, index}) {
         points={object.points.map(p => (p || [p[0] + (object.transform[0] || 0), p[1] + (object.transform[1] || 0)]).join(" ")).join(" ")}
         stroke="black"
         strokeWidth={2}
-        fill="yellow"
+        fill={drawing.colors[object.color]}
         filter={(object.editing || object.hover) ? "url(#glow)" : null}
         opacity={(object.editing || object.hover) ? 1 : 0.5}
         vectorEffect="non-scaling-stroke"
@@ -301,7 +388,7 @@ function DrawnObject ({object, index}) {
         onMouseDown={(ev) => {
           ev.preventDefault();
           object.origPoints = object.points;
-          object.dragging = (drawing.keys.ctrl ? mouse.gxy : (mouse.prox.onXY ? mouse.prox.onXY.at : null));
+          object.dragging = (drawing.key.lastKey.ctrl ? mouse.gxy : (mouse.prox.onXY ? mouse.prox.onXY.at : null));
           drawing.setDragObject(object);
         }}
         onMouseUp={(ev) => {
@@ -314,7 +401,7 @@ function DrawnObject ({object, index}) {
           if (drawing.active) return;
           ev.stopPropagation();
           // console.log(`right-clicked obj-${object.n}`);
-          if (mouse.prox.onXY) drawing.addIntermediatePointToObject(object, drawing.keys.ctrl ? mouse.gxy : mouse.prox.onXY.at);
+          if (mouse.prox.onXY) drawing.addIntermediatePointToObject(object, drawing.key.lastKey.ctrl ? mouse.gxy : mouse.prox.onXY.at);
         }}
       />
       <DrawnObjectPoints object={object} index={index}/>

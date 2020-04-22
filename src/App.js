@@ -1,34 +1,62 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useState, useContext } from 'react';
 import AuricCoffer from './AuricCoffer';
+import KeyMon, { KeyboardMonitorContext } from './modules/KeyboardMonitor';
+import Playground from './Playground';
 
 import './App.css';
 
 const AuricContext = createContext(null);
 
 function App () {
-  const auric = useAuricContext();
+  if (0) return (
+    <Playground/>
+  );
 
   return (
-    <AuricContext.Provider value={auric}>
-      <div id="AuricCofferApp" className="App" tabIndex="-1" {...auric.events}>
+    <KeyMon>
+      <AuricWrapper>
         <AuricCoffer/>
-        <div>
-          {auric.mouse.X},{auric.mouse.Y} | {auric.mouse.offsetX},{auric.mouse.offsetY} | {auric.mouse.buttons}
-        </div>
-        <div>
-          {auric.key.shift} | {auric.key.alt} | {auric.key.ctrl} | {auric.key.key} ({auric.key.code}) | {auric.key.type}
-        </div>
-      </div>
-    </AuricContext.Provider>
+        <AuricDiagnostics/>
+      </AuricWrapper>
+    </KeyMon>
   )
 }
 
 
-function useAuricContext () {
+function AuricWrapper ({children}) {
+  const auric = useAuric();
+
+  return (
+    <AuricContext.Provider value={auric}>
+      <div id="AuricCofferApp" className="App" {...auric.events}>
+        {children}
+      </div>
+    </AuricContext.Provider>
+  );
+}
+
+
+function AuricDiagnostics () {
+  const auric = useContext(AuricContext);
+  const mon = useContext(KeyboardMonitorContext);
+
+  return (
+    <div>
+      <div>
+        {auric.mouse.X},{auric.mouse.Y} | {auric.mouse.offsetX},{auric.mouse.offsetY} | {auric.mouse.buttons}
+      </div>
+      <div>
+        {mon.lastKey.shift} | {mon.lastKey.alt} | {mon.lastKey.ctrl} | {mon.lastKey.key} ({mon.lastKey.keyCode}) | {mon.lastKey.type}
+      </div>
+    </div>
+  );
+}
+
+
+function useAuric () {
   const auric = {};
 
   auric.mouse = useAuricMouse();
-  auric.key = useAuricKeyboard();
   
   auric.focused = null;
   auric.findFocus = (ev) => {
@@ -38,11 +66,9 @@ function useAuricContext () {
   }
 
   auric.events = {
-    onMouseOver: auric.findFocus,
+    // onMouseOver: auric.findFocus,
     onMouseDown: ev => ev.preventDefault(),
     onMouseMove: auric.mouse.update,
-    onKeyDown: auric.key.update,
-    onKeyUp: auric.key.update,
   }
 
   return auric;
