@@ -329,8 +329,11 @@ function SpriteEditorPanes () {
           <hr/>
           <Details/>
           <hr/>
-          <input type="text" defaultValue="hello" onChange={ev => console.log(ev.target.value)}/>
-          <KeyboardEvent nonInput control x>{() => alert("Ctrl-X")}</KeyboardEvent>
+          <input type="text" defaultValue="hello" XonChange={ev => console.log(ev.target.value)}/>
+          <KeyboardEvent control x>{() => console.log("Ctrl-X")}</KeyboardEvent>
+          <KeyboardEvent sequence="c a t">{() => console.log("CAT")}</KeyboardEvent>
+          <KeyboardEvent keys="=">{() => console.log("equals")}</KeyboardEvent>
+          <KeyboardEvent shift keys="+">{() => console.log("plus")}</KeyboardEvent>
         </div>
       </div>
       <MouseHover/>
@@ -342,7 +345,11 @@ function SpriteEditorPanes () {
 function KeyDetails () {
   const drawing = useContext(SpriteDrawingContext);
   const mon = useContext(KeyboardMonitorContext);
-  return null; // return `${JSON.stringify(mon.lastKey || {})}`;
+  return (
+    <div>
+      <div>{mon.queue.join(" ")}</div>
+    </div>
+  )
 }
 
 

@@ -7,6 +7,8 @@ function KeyboardMonitor ({children, ...props}) {
 
   useEffect(() => {
     mon.ref.current.focus();
+    document.addEventListener('keydown', (ev) => {console.log(`doc ${ev.type} ${ev.key} ${ev.keyCode}`);0&&ev.preventDefault();});
+    document.addEventListener('keyup', (ev) => {console.log(`doc ${ev.type} ${ev.key} ${ev.keyCode}`);0&&ev.preventDefault();});
   }, []);
 
   return (
@@ -26,26 +28,47 @@ function useKeyboardMonitor () {
     ref: useRef(),
   };
 
+  const m = {};
+
   [ mon.triggers, mon.setTriggers ] = useState({});
   [ mon.event, mon.setEvent ] = useState(null);
+
   [ mon.keys, mon.setKeys ] = useState({});
-  [ mon.lastKey, mon.setLastKey ] = useState({});
+  mon.pressed = { keyCodes: Object.keys(mon.keys).sort((a,b) => a-b), keys: Object.values(mon.keys).sort() };
+
+  [ mon.lastKey, m._setLastKey ] = useState({});
+  mon.setLastKey = (ev) => m._setLastKey({
+    type: ev.type,
+    ctrl: ev.ctrlKey && 'ctrl',
+    shift: ev.shiftKey && 'shift',
+    alt: ev.altKey && 'alt',
+    key: ev.key,
+    keyCode: ev.keyCode,
+    realKeyCode: ev.realKeyCode,
+  });          
+
+  [ mon.queue, mon.setQueue ] = useState([]);
 
   mon.onKey = (ev) => {
+    ev.realKeyCode = ev.keyCode; // (ev.shiftKey && ev.key !== 'Shift') ? ev.keyCode << 8: ev.keyCode;
+
     ev.persist();
     mon.setEvent(ev);
 
     if (ev.type === 'keydown') {
+      // console.log(ev);
       mon.setKeys(k => {
-        if (ev.keyCode !== mon.lastKey.keyCode) k = {...k, [ev.keyCode]: ev.key.toLowerCase()}
+        if (ev.realKeyCode !== mon.lastKey.realKeyCode) k = {...k, [ev.realKeyCode]: ev.key.toLowerCase()}
         mon.setLastKey(ev);
         return k;
       });
     }
     else if (ev.type === 'keyup') {
       mon.setKeys(k => {
-        delete k[ev.keyCode];
-        if (ev.keyCode === mon.lastKey.keyCode) mon.setLastKey({});
+        delete k[ev.realKeyCode];
+        if (ev.realKeyCode === mon.lastKey.realKeyCode) {
+          mon.setLastKey({});
+        }
         return {...k};
       });
     }
@@ -56,29 +79,39 @@ function useKeyboardMonitor () {
     // if (seq.length > 0) console.log(seq);
 
     let stop = false;
-
-    (mon.triggers[seq] || []).forEach(t => {
-      if (! stop && !(t.pure && ["INPUT","TEXTAREA","SELECT"].includes(mon.event.target.nodeName))) {
+    const triggers = mon.triggers[seq] || [];
+    // console.log(mon.triggers);
+    // console.log("checking triggers", mon.keys);
+    for (let i = 0; i < triggers.length; i++) {
+      const t = triggers[i];
+      if (!stop && (t.override || !["INPUT","TEXTAREA","SELECT"].includes(mon.event.target.nodeName))) {
         stop = t.stop;
-        console.log("triggering");
-        try { t.handler(t.element, mon.keys) } catch (err) { }
-        console.log("triggered");
+        t.handler(mon.event, mon.keys, t.element);
+        if (!t.allowDefault) mon.event.preventDefault();
         // if (t.once) mon.setKeys({});
       }
-    })
+    }
   }, [mon.keys, mon.triggers])
 
   mon.register = (t, ref) => {
     mon.setTriggers(trig => {
       let idx = {};
-      const { children, noRepeat, stopPropagation, nonInput, keys=[], ...cfg } = t;
-      if (keys.length) {
+      const { children, noRepeat, stopPropagation, allowDefault, overrideInput, sequence=null, keys=[], ...cfg } = t;
+
+      if (typeof keys === 'string') {
+        keys.split(' ').forEach(k => cfg[k] = true);
+      }
+
+      if (sequence !== null) {
+
+      }
+      else if (typeof keys === 'array' && keys.length) {
         keys.forEach(k => {
           const seq = [...Object.keys(cfg), k].map(i => i.toLowerCase()).sort().join(" ");
           if (! trig[seq]) trig[seq] = [];
           if (! idx[seq]) idx[seq] = 0;
           // console.log(`inserting ${seq} @ ${idx[seq]} for ${ref.current}`)
-          trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, pure: nonInput});
+          trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, override: overrideInput});
         })
       }
       else {
@@ -86,7 +119,7 @@ function useKeyboardMonitor () {
         if (! trig[seq]) trig[seq] = [];
         if (! idx[seq]) idx[seq] = 0;
         // console.log(`inserting ${seq} @ ${idx[seq]} for ${ref.current}`)
-        trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, pure: nonInput});
+        trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, override: overrideInput});
       }
       return trig;
     })
@@ -94,8 +127,15 @@ function useKeyboardMonitor () {
 
   mon.unregister = (t, ref) => {
     mon.setTriggers(trig => {
-      const { children, noRepeat, stopPropagation, nonInput, keys=[], ...cfg } = t;
-      if (keys.length) {
+      const { children, noRepeat, stopPropagation, allowDefault, overrideInput, sequence=null, keys=[], ...cfg } = t;
+      if (typeof keys === 'string') {
+        keys.split(' ').forEach(k => cfg[k] = true);
+      }
+
+      if (sequence !== null) {
+
+      }
+      else if (typeof keys === 'array' && keys.length) {
         keys.forEach(k => {
           const seq = [...Object.keys(cfg), k].map(i => i.toLowerCase()).sort().join(" ");
           if (! trig[seq]) trig[seq] = [];
