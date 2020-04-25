@@ -279,7 +279,7 @@ function SpriteEditorPanes () {
   return (
     <>
       <div className="LeftPane">
-        <div className="WorkSpace">
+        {false && <div className="WorkSpace">
           <style type="text/css">{`
             SVG:focus { outline: none !important }
           `}</style>
@@ -321,7 +321,7 @@ function SpriteEditorPanes () {
               drawing.changeObjectColor(drawing.hover);
             }}</KeyboardEvent>
           </>)}
-        </div>
+        </div>}
       </div>
       <div className="RightPane">
         <div className="Console">
@@ -329,11 +329,18 @@ function SpriteEditorPanes () {
           <hr/>
           <Details/>
           <hr/>
-          <input type="text" defaultValue="hello" XonChange={ev => console.log(ev.target.value)}/>
-          <KeyboardEvent control x>{() => console.log("Ctrl-X")}</KeyboardEvent>
-          <KeyboardEvent sequence="c a t">{() => console.log("CAT")}</KeyboardEvent>
-          <KeyboardEvent keys="=">{() => console.log("equals")}</KeyboardEvent>
-          <KeyboardEvent shift keys="+">{() => console.log("plus")}</KeyboardEvent>
+          <input type="text" defaultValue="hello"/>
+
+{/*
+          <KeyboardEvent ctrl m>
+            <KeyboardEvent ctrl b>{() => console.log("Ctrl-M Ctrl-B")}</KeyboardEvent>
+          </KeyboardEvent>
+*/}
+          <KeyboardEvent overrideInput ctrl x>{() => console.log("Ctrl-X")}</KeyboardEvent>
+          <KeyboardEvent ctrl keys="+">{() => console.log("Ctrl-(Shift)-Plus")}</KeyboardEvent>
+          <KeyboardEvent sequence="ctrl-m ctrl-i ctrl-y">{() => console.log("Ctrl-I Ctrl-Y")}</KeyboardEvent>
+          <KeyboardEvent sequence="ctrl--">{() => console.log("Ctrl+-")}</KeyboardEvent>
+
         </div>
       </div>
       <MouseHover/>
@@ -347,7 +354,7 @@ function KeyDetails () {
   const mon = useContext(KeyboardMonitorContext);
   return (
     <div>
-      <div>{mon.queue.join(" ")}</div>
+      <div>{mon.queueSize} : {mon.queue.map(q => `${q.id} (${q.keyCode})`).join("; ")}</div>
     </div>
   )
 }

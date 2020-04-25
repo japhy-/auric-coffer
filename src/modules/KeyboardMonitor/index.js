@@ -1,14 +1,19 @@
-import React, { useRef, createContext, useEffect, useContext, useState } from "react";
+import React, { useRef, createContext, useEffect, useContext, useState, useMemo } from "react";
 
 const KeyboardMonitorContext = createContext({});
+const KeyboardEventContext = createContext([]);
+
+// https://stackoverflow.com/questions/4331092/finding-all-combinations-cartesian-product-of-javascript-array-values/4331713#4331713
+function* cartesian (head, ...tail) {
+  let remainder = tail.length ? cartesian(...tail) : [[]];
+  for (let r of remainder) for (let h of head) yield [h, ...r];
+};
 
 function KeyboardMonitor ({children, ...props}) {
   const mon = useKeyboardMonitor();
 
   useEffect(() => {
     mon.ref.current.focus();
-    document.addEventListener('keydown', (ev) => {console.log(`doc ${ev.type} ${ev.key} ${ev.keyCode}`);0&&ev.preventDefault();});
-    document.addEventListener('keyup', (ev) => {console.log(`doc ${ev.type} ${ev.key} ${ev.keyCode}`);0&&ev.preventDefault();});
   }, []);
 
   return (
@@ -16,7 +21,7 @@ function KeyboardMonitor ({children, ...props}) {
       <style type="text/css">{`
       SPAN.KeyboardMonitorWrapper:focus { outline: none !important }
       `}</style>
-      <span className="KeyboardMonitorWrapper" ref={mon.ref} tabIndex="-1" onKeyDown={mon.onKey} onKeyUp={mon.onKey}>
+      <span className="KeyboardMonitorWrapper" ref={mon.ref} tabIndex="-1" onKeyDown={mon.onKey}>
         {children}
       </span>
     </KeyboardMonitorContext.Provider>
@@ -24,150 +29,183 @@ function KeyboardMonitor ({children, ...props}) {
 }
 
 function useKeyboardMonitor () {
+  const shiftedKeys = [
+    '~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '{', '}', '|', ':', '"', '<', '>', '?',
+    'insert', 'delete', 'pageup', 'pagedown',
+  ];
+
   const mon = {
     ref: useRef(),
+    _lastKey: useRef({}),
   };
 
-  const m = {};
-
-  [ mon.triggers, mon.setTriggers ] = useState({});
+  [ mon.triggers, mon.setTriggers ] = useState({1: {}});
   [ mon.event, mon.setEvent ] = useState(null);
 
-  [ mon.keys, mon.setKeys ] = useState({});
-  mon.pressed = { keyCodes: Object.keys(mon.keys).sort((a,b) => a-b), keys: Object.values(mon.keys).sort() };
-
-  [ mon.lastKey, m._setLastKey ] = useState({});
-  mon.setLastKey = (ev) => m._setLastKey({
-    type: ev.type,
-    ctrl: ev.ctrlKey && 'ctrl',
-    shift: ev.shiftKey && 'shift',
-    alt: ev.altKey && 'alt',
-    key: ev.key,
-    keyCode: ev.keyCode,
-    realKeyCode: ev.realKeyCode,
-  });          
-
+  [ mon.lastKey, mon.setLastKey ] = useState({});
   [ mon.queue, mon.setQueue ] = useState([]);
+  [ mon.queueSize, mon.setQueueSize ] = useState(1);
+
+  mon.eventToKey = (ev) => {
+    const k = {
+      meta: ev.metaKey && 'meta',
+      ctrl: ev.ctrlKey && 'ctrl',
+      alt: ev.altKey && 'alt',
+      shift: ev.shiftKey && 'shift',
+      key: ev.key.toLowerCase(),
+      keyCode: ev.keyCode,
+    };
+    k.nonSpecialKey = !['shift','control','alt','meta'].includes(k.key) && k.key;
+    k.id = [
+      k.meta, k.ctrl, k.alt,
+      !shiftedKeys.includes(k.key) && k.shift,
+      k.nonSpecialKey,
+    ].filter(i => i !== false).sort().join(' ');
+    return k;
+  };
+
+  mon.keyBuildsOn = (k1, k2) => {
+    if (k1.nonSpecialKey === false && k2.nonSpecialKey !== false) return false;
+    for (let _ of ['meta', 'ctrl', 'alt', 'shift', 'nonSpecialKey']) if (k1[_] !== false && k2[_] === false) return true;
+    return false;
+  }
 
   mon.onKey = (ev) => {
-    ev.realKeyCode = ev.keyCode; // (ev.shiftKey && ev.key !== 'Shift') ? ev.keyCode << 8: ev.keyCode;
-
     ev.persist();
-    mon.setEvent(ev);
-
-    if (ev.type === 'keydown') {
-      // console.log(ev);
-      mon.setKeys(k => {
-        if (ev.realKeyCode !== mon.lastKey.realKeyCode) k = {...k, [ev.realKeyCode]: ev.key.toLowerCase()}
-        mon.setLastKey(ev);
-        return k;
-      });
+    const k = mon.eventToKey(ev);
+    let queue = mon.queue;
+    if (k.id !== mon._lastKey.current.id) {
+      if (mon.keyBuildsOn(k, mon._lastKey.current)) {
+        mon.setLastKey(mon._lastKey.current = k);
+        queue[queue.length-1] = k;
+        mon.setQueue(queue);
+      }
+      else {
+        mon.setLastKey(mon._lastKey.current = k);
+        mon.setQueue(queue = [...mon.queue, k].slice(-mon.queueSize));
+      }
     }
-    else if (ev.type === 'keyup') {
-      mon.setKeys(k => {
-        delete k[ev.realKeyCode];
-        if (ev.realKeyCode === mon.lastKey.realKeyCode) {
-          mon.setLastKey({});
+
+    let stop = false;
+
+    for (let j = mon.queueSize; !stop && j >= 1; j--) {
+      if (! mon.triggers[j]) continue;
+      const seq = queue.slice(-j).map(i => i.id).join("   ");
+      (mon.triggers[j][seq] || []).forEach(t => {
+        if (!stop && (t.props.overrideInput || !["INPUT","TEXTAREA","SELECT"].includes(ev.target.nodeName))) {
+          stop = t.props.stopPropagation;
+          if (t.props.handler) t.props.handler(ev, queue.slice(-j), t.props.ref);
+          if (! t.subEvents.length) mon.setQueue([]);
+          if (t.props.preventDefault) ev.preventDefault();
         }
-        return {...k};
-      });
+      })
     }
   };
 
-  useEffect(() => {
-    const seq = Object.values(mon.keys).sort().join(" ");
-    // if (seq.length > 0) console.log(seq);
+  mon.parseEvent = ({ children, stopPropagation=false, preventDefault=true, overrideInput=false, sequence=null, keys=[], handler=null, ...cfg }, ref, evs) => {
+    const kev = {
+      subEvents: [],
+      sequences: {},
+      parents: evs.map(i => i.sequences),
+      props: {
+        ref,
+        stopPropagation,
+        preventDefault,
+        overrideInput,
+        handler,
+      },
+    };
 
-    let stop = false;
-    const triggers = mon.triggers[seq] || [];
-    // console.log(mon.triggers);
-    // console.log("checking triggers", mon.keys);
-    for (let i = 0; i < triggers.length; i++) {
-      const t = triggers[i];
-      if (!stop && (t.override || !["INPUT","TEXTAREA","SELECT"].includes(mon.event.target.nodeName))) {
-        stop = t.stop;
-        t.handler(mon.event, mon.keys, t.element);
-        if (!t.allowDefault) mon.event.preventDefault();
-        // if (t.once) mon.setKeys({});
-      }
+    if (typeof children === 'function') kev.props.handler = children;
+    else React.Children.forEach(children, c => React.isValidElement(c) && c.type.name === 'KeyboardEvent' && kev.subEvents.push(c));
+
+    if (typeof keys === 'string') keys.split(' ').forEach(k => cfg[k] = true);
+    const pressed = Object.keys(cfg).map(i => i.toLowerCase());
+    const sequences = [];
+
+    if (sequence !== null) {
+      const seqs = sequence.toLowerCase().split(/\s+/).map(p => p.split(/(?:(?<!-)|(?<=--))-/).sort().join(" "));
+      mon.setQueueSize(s => seqs.length > s ? seqs.length : s);
+
+      const seq = seqs.pop();
+      kev.parents.push(...seqs.map(i => { return { [i]: true }}));
+      console.log('kev.parents', kev.parents);
+      console.log(seqs, seq);
+      sequences.push(seq);
     }
-  }, [mon.keys, mon.triggers])
+    else if (Array.isArray(keys) && keys.length) {
+      keys.forEach(k => sequences.push([...pressed, k.toLowerCase()].sort().join(" ")));
+    }
+    else {
+      sequences.push(pressed.sort().join(" "));
+    }
 
-  mon.register = (t, ref) => {
-    mon.setTriggers(trig => {
-      let idx = {};
-      const { children, noRepeat, stopPropagation, allowDefault, overrideInput, sequence=null, keys=[], ...cfg } = t;
+    sequences.forEach(seq => kev.sequences[seq] = true);
 
-      if (typeof keys === 'string') {
-        keys.split(' ').forEach(k => cfg[k] = true);
-      }
+    return kev;
+  };
 
-      if (sequence !== null) {
+  mon.register = (kev) => {
+    mon.setTriggers(trigs => {
+      const sequences = cartesian(...kev.parents.map(i => Object.keys(i)), Object.keys(kev.sequences));
+      const idx = {};
+      [...sequences].forEach(seq => {
+        console.log(seq);
+        // if (seq.length == 1 && seq[0].match(/   /)) seq = seq[0].split(/   /);
+        const len = seq.length;
+        mon.setQueueSize(s => len > s ? len : s);
+        const s = seq.join("   ");
+        if (! idx[s]) idx[s] = 0;
+        if (! trigs[len]) trigs[len] = {};
+        if (! trigs[len][s]) trigs[len][s] = [];
 
-      }
-      else if (typeof keys === 'array' && keys.length) {
-        keys.forEach(k => {
-          const seq = [...Object.keys(cfg), k].map(i => i.toLowerCase()).sort().join(" ");
-          if (! trig[seq]) trig[seq] = [];
-          if (! idx[seq]) idx[seq] = 0;
-          // console.log(`inserting ${seq} @ ${idx[seq]} for ${ref.current}`)
-          trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, override: overrideInput});
-        })
-      }
-      else {
-        const seq = Object.keys(cfg).map(i => i.toLowerCase()).sort().join(" ");
-        if (! trig[seq]) trig[seq] = [];
-        if (! idx[seq]) idx[seq] = 0;
-        // console.log(`inserting ${seq} @ ${idx[seq]} for ${ref.current}`)
-        trig[seq].splice(idx[seq]++, 0, {element: ref.current, handler: children, stop: stopPropagation, once: noRepeat, override: overrideInput});
-      }
-      return trig;
+        trigs[len][s].splice(idx[s]++, 0, kev);
+      })
+      return trigs;
     })
   };
 
-  mon.unregister = (t, ref) => {
-    mon.setTriggers(trig => {
-      const { children, noRepeat, stopPropagation, allowDefault, overrideInput, sequence=null, keys=[], ...cfg } = t;
-      if (typeof keys === 'string') {
-        keys.split(' ').forEach(k => cfg[k] = true);
-      }
+  mon.unregister = (kev) => {
+    mon.setTriggers(trigs => {
+      const sequences = cartesian(...kev.parents.map(i => Object.keys(i)), Object.keys(kev.sequences));
+      [...sequences].forEach(seq => {
+        const len = seq.length;
+        const s = seq.join("   ");
+        if (trigs[len] && trigs[len][s]) trigs[len][s] = trigs[len][s].filter(i => i.props.ref !== kev.props.ref);
+      })
 
-      if (sequence !== null) {
-
-      }
-      else if (typeof keys === 'array' && keys.length) {
-        keys.forEach(k => {
-          const seq = [...Object.keys(cfg), k].map(i => i.toLowerCase()).sort().join(" ");
-          if (! trig[seq]) trig[seq] = [];
-          trig[seq] = trig[seq].filter(i => i.element !== ref.current);
-        })
-      }
-      else {
-        const seq = Object.keys(cfg).map(i => i.toLowerCase()).sort().join(" ");
-        if (! trig[seq]) trig[seq] = [];
-        trig[seq] = trig[seq].filter(i => i.element !== ref.current);
-      }
-      return trig;
+      return trigs;
     })
   };
 
   return mon;
 }
 
+
 function KeyboardEvent (props) {
+  const evs = useContext(KeyboardEventContext);
   const mon = useContext(KeyboardMonitorContext);
   const ref = useRef();
-
+  const [ self, setSelf ] = useState({});
+  
   useEffect(() => {
-    mon.register(props, ref);
+    setSelf(mon.parseEvent(props, ref, evs));
 
     return () => {
-      mon.unregister(props, ref);
+      mon.unregister(self);
     }
   }, [])
 
+  useEffect(() => {
+    if (self.props && self.props.ref) mon.register(self);
+  }, [self]);
+
   return (
-    <span ref={ref} {...Object.fromEntries(Object.entries(props).map(([k, v]) => [`data-keyboard-event-${k}`, v]))}/>
+    <KeyboardEventContext.Provider value={[...evs, self]}>
+      <span ref={ref} {...Object.fromEntries(Object.entries(props).map(([k, v]) => [`data-keyboard-event-${k}`, v]))}>
+        {self.subEvents}
+      </span>
+    </KeyboardEventContext.Provider>
   );
 }
 
