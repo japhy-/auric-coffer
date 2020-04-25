@@ -66,7 +66,10 @@ function useKeyboardMonitor () {
 
   mon.keyBuildsOn = (k1, k2) => {
     if (k1.nonSpecialKey === false && k2.nonSpecialKey !== false) return false;
-    for (let _ of ['meta', 'ctrl', 'alt', 'shift', 'nonSpecialKey']) if (k1[_] !== false && k2[_] === false) return true;
+    for (let _ of ['meta', 'ctrl', 'alt', 'shift', 'nonSpecialKey']) {
+      if (k1[_] !== false && k2[_] === false) return true;
+      if (k1[_] === false && k2[_] !== false) return false;
+    }
     return false;
   }
 
@@ -92,11 +95,11 @@ function useKeyboardMonitor () {
       if (! mon.triggers[j]) continue;
       const seq = queue.slice(-j).map(i => i.id).join("   ");
       (mon.triggers[j][seq] || []).forEach(t => {
-        if (!stop && (t.props.overrideInput || !["INPUT","TEXTAREA","SELECT"].includes(ev.target.nodeName))) {
-          stop = t.props.stopPropagation;
-          if (t.props.handler) t.props.handler(ev, queue.slice(-j), t.props.ref);
+        if (!stop && (t.overrideInput || !["INPUT","TEXTAREA","SELECT"].includes(ev.target.nodeName))) {
+          stop = t.stopPropagation;
+          if (t.handler) t.handler({event: ev, queue: queue.slice(-j), element: t.ref});
           if (! t.subEvents.length) mon.setQueue([]);
-          if (t.props.preventDefault) ev.preventDefault();
+          if (t.preventDefault) ev.preventDefault();
         }
       })
     }
@@ -105,18 +108,16 @@ function useKeyboardMonitor () {
   mon.parseEvent = ({ children, stopPropagation=false, preventDefault=true, overrideInput=false, sequence=null, keys=[], handler=null, ...cfg }, ref, evs) => {
     const kev = {
       subEvents: [],
-      sequences: {},
-      parents: evs.map(i => i.sequences),
-      props: {
-        ref,
-        stopPropagation,
-        preventDefault,
-        overrideInput,
-        handler,
-      },
+      sequences: [],
+      parents: [...evs], // because we might push() to it, and don't want to mess with evs for real
+      ref,
+      stopPropagation,
+      preventDefault,
+      overrideInput,
+      handler,
     };
 
-    if (typeof children === 'function') kev.props.handler = children;
+    if (typeof children === 'function') kev.handler = children;
     else React.Children.forEach(children, c => React.isValidElement(c) && c.type.name === 'KeyboardEvent' && kev.subEvents.push(c));
 
     if (typeof keys === 'string') keys.split(' ').forEach(k => cfg[k] = true);
@@ -128,9 +129,7 @@ function useKeyboardMonitor () {
       mon.setQueueSize(s => seqs.length > s ? seqs.length : s);
 
       const seq = seqs.pop();
-      kev.parents.push(...seqs.map(i => { return { [i]: true }}));
-      console.log('kev.parents', kev.parents);
-      console.log(seqs, seq);
+      kev.parents.push(...seqs.map(i => [i]));
       sequences.push(seq);
     }
     else if (Array.isArray(keys) && keys.length) {
@@ -140,18 +139,16 @@ function useKeyboardMonitor () {
       sequences.push(pressed.sort().join(" "));
     }
 
-    sequences.forEach(seq => kev.sequences[seq] = true);
+    sequences.forEach(seq => kev.sequences.push(seq));
 
     return kev;
   };
 
   mon.register = (kev) => {
     mon.setTriggers(trigs => {
-      const sequences = cartesian(...kev.parents.map(i => Object.keys(i)), Object.keys(kev.sequences));
+      const sequences = cartesian(...kev.parents, kev.sequences);
       const idx = {};
       [...sequences].forEach(seq => {
-        console.log(seq);
-        // if (seq.length == 1 && seq[0].match(/   /)) seq = seq[0].split(/   /);
         const len = seq.length;
         mon.setQueueSize(s => len > s ? len : s);
         const s = seq.join("   ");
@@ -167,11 +164,11 @@ function useKeyboardMonitor () {
 
   mon.unregister = (kev) => {
     mon.setTriggers(trigs => {
-      const sequences = cartesian(...kev.parents.map(i => Object.keys(i)), Object.keys(kev.sequences));
+      const sequences = cartesian(...kev.parents, kev.sequences);
       [...sequences].forEach(seq => {
         const len = seq.length;
         const s = seq.join("   ");
-        if (trigs[len] && trigs[len][s]) trigs[len][s] = trigs[len][s].filter(i => i.props.ref !== kev.props.ref);
+        if (trigs[len] && trigs[len][s]) trigs[len][s] = trigs[len][s].filter(i => i.ref !== kev.ref);
       })
 
       return trigs;
@@ -197,11 +194,11 @@ function KeyboardEvent (props) {
   }, [])
 
   useEffect(() => {
-    if (self.props && self.props.ref) mon.register(self);
+    if (self.ref) mon.register(self);
   }, [self]);
 
   return (
-    <KeyboardEventContext.Provider value={[...evs, self]}>
+    <KeyboardEventContext.Provider value={[...evs, self.sequences]}>
       <span ref={ref} {...Object.fromEntries(Object.entries(props).map(([k, v]) => [`data-keyboard-event-${k}`, v]))}>
         {self.subEvents}
       </span>

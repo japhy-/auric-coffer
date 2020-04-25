@@ -329,18 +329,24 @@ function SpriteEditorPanes () {
           <hr/>
           <Details/>
           <hr/>
-          <input type="text" defaultValue="hello"/>
+          <input type="text" defaultValue=""/>
 
-{/*
-          <KeyboardEvent ctrl m>
-            <KeyboardEvent ctrl b>{() => console.log("Ctrl-M Ctrl-B")}</KeyboardEvent>
+          <KeyboardEvent ctrl shift handler={() => console.log("Ctrl-Shift...")}>
+            <KeyboardEvent keys={['a', 'b', 'c']}>{({queue}) => console.log(queue)}</KeyboardEvent>
           </KeyboardEvent>
-*/}
-          <KeyboardEvent overrideInput ctrl x>{() => console.log("Ctrl-X")}</KeyboardEvent>
-          <KeyboardEvent ctrl keys="+">{() => console.log("Ctrl-(Shift)-Plus")}</KeyboardEvent>
-          <KeyboardEvent sequence="ctrl-m ctrl-i ctrl-y">{() => console.log("Ctrl-I Ctrl-Y")}</KeyboardEvent>
-          <KeyboardEvent sequence="ctrl--">{() => console.log("Ctrl+-")}</KeyboardEvent>
 
+          <KeyboardEvent ctrl alt keys={['a', 'b', 'c']}>{({queue}) => console.log(`Ctrl-Alt-`, queue)}</KeyboardEvent>
+
+          <KeyboardEvent ctrl m handler={() => console.log("saw Ctrl-M...")}>
+            <KeyboardEvent ctrl b>{() => console.log("Ctrl-M Ctrl-B")}</KeyboardEvent>
+            <KeyboardEvent sequence="ctrl-i ctrl-y">{() => console.log("Ctrl-M Ctrl-I Ctrl-Y")}</KeyboardEvent>
+          </KeyboardEvent>
+
+          <KeyboardEvent overrideInput ctrl x>{() => console.log("Ctrl-X")}</KeyboardEvent>
+          <KeyboardEvent sequence="c a t">{({queue}) => console.log(`cat`, queue)}</KeyboardEvent>
+
+          <KeyboardEvent ctrl keys="+">{() => console.log("Ctrl-(Shift)-Plus")}</KeyboardEvent>
+          <KeyboardEvent sequence="ctrl--">{() => console.log("Ctrl+-")}</KeyboardEvent>
         </div>
       </div>
       <MouseHover/>
