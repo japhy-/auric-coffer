@@ -332,10 +332,10 @@ function SpriteEditorPanes () {
           <input type="text" defaultValue=""/>
 
           <KeyboardEvent ctrl shift handler={() => console.log("Ctrl-Shift...")}>
-            <KeyboardEvent keys={['a', 'b', 'c']}>{({queue}) => console.log(queue)}</KeyboardEvent>
+            <KeyboardEvent keys={['a', 'b', 'c']}>{({queue}) => console.log("Ctrl-Shift and then (A/B/C)")}</KeyboardEvent>
           </KeyboardEvent>
 
-          <KeyboardEvent ctrl alt keys={['a', 'b', 'c']}>{({queue}) => console.log(`Ctrl-Alt-`, queue)}</KeyboardEvent>
+          <KeyboardEvent ctrl alt keys={['a', 'b', 'c']}>{({queue}) => console.log("Ctrl-Alt-(A/B/C)")}</KeyboardEvent>
 
           <KeyboardEvent ctrl m handler={() => console.log("saw Ctrl-M...")}>
             <KeyboardEvent ctrl b>{() => console.log("Ctrl-M Ctrl-B")}</KeyboardEvent>
@@ -346,7 +346,7 @@ function SpriteEditorPanes () {
           <KeyboardEvent sequence="c a t">{({queue}) => console.log(`cat`, queue)}</KeyboardEvent>
 
           <KeyboardEvent ctrl keys="+">{() => console.log("Ctrl-(Shift)-Plus")}</KeyboardEvent>
-          <KeyboardEvent sequence="ctrl--">{() => console.log("Ctrl+-")}</KeyboardEvent>
+          <KeyboardEvent sequence="ctrl--">{() => console.log("Ctrl-Minus")}</KeyboardEvent>
         </div>
       </div>
       <MouseHover/>
